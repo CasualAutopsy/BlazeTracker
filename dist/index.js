@@ -39871,24 +39871,21 @@ async function init() {
             (0,_injectors_injectState__WEBPACK_IMPORTED_MODULE_4__.updateInjectionFromChat)();
         }, 100);
     }));
-    // Handle swipes - need to re-render and possibly extract
     const handleSwipe = async (messageId) => {
         log('Swipe detected for message:', messageId);
         const stContext = SillyTavern.getContext();
         const message = stContext.chat[messageId];
         const existingState = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_6__.getMessageState)(message);
         if (existingState) {
-            // This swipe has state, just render it
+            // This swipe already has state, render it
             log('State exists for this swipe');
             (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.renderMessageState)(messageId, existingState);
         }
-        else if (autoExtractResponses) {
-            // No state for this swipe, auto-extract
-            log('No state for this swipe, extracting...');
-            await (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.doExtractState)(messageId);
-        }
         else {
-            // No auto-extract, just show nothing
+            // No state - either new generation in progress or old unextracted swipe
+            // Don't auto-extract here - could be mid-generation with wrong content
+            // GENERATION_ENDED will handle new generations
+            // User can manually extract old swipes if needed
             (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.renderMessageState)(messageId, null);
         }
         (0,_injectors_injectState__WEBPACK_IMPORTED_MODULE_4__.updateInjectionFromChat)();

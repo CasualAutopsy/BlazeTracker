@@ -89,7 +89,6 @@ async function init() {
     }, 100);
   }) as (...args: unknown[]) => void);
 
-  // Handle swipes - need to re-render and possibly extract
   const handleSwipe = async (messageId: number) => {
     log('Swipe detected for message:', messageId);
 
@@ -98,15 +97,14 @@ async function init() {
     const existingState = getMessageState(message);
 
     if (existingState) {
-      // This swipe has state, just render it
+      // This swipe already has state, render it
       log('State exists for this swipe');
       renderMessageState(messageId, existingState);
-    } else if (autoExtractResponses) {
-      // No state for this swipe, auto-extract
-      log('No state for this swipe, extracting...');
-      await doExtractState(messageId);
     } else {
-      // No auto-extract, just show nothing
+      // No state - either new generation in progress or old unextracted swipe
+      // Don't auto-extract here - could be mid-generation with wrong content
+      // GENERATION_ENDED will handle new generations
+      // User can manually extract old swipes if needed
       renderMessageState(messageId, null);
     }
 
