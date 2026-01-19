@@ -6,11 +6,11 @@ A SillyTavern extension that uses LLM analysis to track and maintain scene state
 
 ### Compact View
 
-![./img/screenshot.png]
+![](./img/screenshot.png)
 
 ### Detailed View
 
-![./img/detailed_screenshot.png]
+![](./img/detailed_screenshot.png)
 
 ## Features
 
