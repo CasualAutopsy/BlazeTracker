@@ -37917,6 +37917,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
 /* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
 /* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
+/* harmony import */ var _utils_tension__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../utils/tension */ "./src/utils/tension.ts");
+
 
 
 
@@ -38079,6 +38081,9 @@ async function extractState(context, messageId, previousState, abortSignal) {
         const response = await makeGeneratorRequest(messages, settings.profileId, maxResponseTokens, abortController.signal);
         // Parse response
         const state = parseResponse(response);
+        if (state.scene?.tension) {
+            state.scene.tension.direction = (0,_utils_tension__WEBPACK_IMPORTED_MODULE_4__.calculateTensionDirection)(state.scene.tension.level, previousState?.scene?.tension?.level);
+        }
         return { state, raw: response };
     }
     finally {
@@ -39594,6 +39599,34 @@ function setMessageState(message, stateData) {
     if (!message.extra[_constants__WEBPACK_IMPORTED_MODULE_0__.EXTENSION_KEY])
         message.extra[_constants__WEBPACK_IMPORTED_MODULE_0__.EXTENSION_KEY] = {};
     message.extra[_constants__WEBPACK_IMPORTED_MODULE_0__.EXTENSION_KEY][swipeId] = stateData;
+}
+
+
+/***/ },
+
+/***/ "./src/utils/tension.ts"
+/*!******************************!*\
+  !*** ./src/utils/tension.ts ***!
+  \******************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   calculateTensionDirection: () => (/* binding */ calculateTensionDirection)
+/* harmony export */ });
+const TENSION_LEVEL_ORDER = [
+    'relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'
+];
+function calculateTensionDirection(currentLevel, previousLevel) {
+    if (!previousLevel)
+        return 'stable';
+    const currentIndex = TENSION_LEVEL_ORDER.indexOf(currentLevel);
+    const previousIndex = TENSION_LEVEL_ORDER.indexOf(previousLevel);
+    if (currentIndex > previousIndex)
+        return 'escalating';
+    if (currentIndex < previousIndex)
+        return 'decreasing';
+    return 'stable';
 }
 
 

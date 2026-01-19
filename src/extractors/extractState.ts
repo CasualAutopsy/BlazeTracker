@@ -5,6 +5,7 @@ import type { Message } from 'sillytavern-utils-lib';
 import { Generator } from 'sillytavern-utils-lib';
 import { getSettings } from '../ui/settings';
 import { getMessageState } from '../utils/messageState';
+import { calculateTensionDirection } from '../utils/tension';
 
 const generator = new Generator();
 let currentAbortController: AbortController | null = null;
@@ -196,6 +197,13 @@ export async function extractState(
 
     // Parse response
     const state = parseResponse(response);
+
+    if (state.scene?.tension) {
+      state.scene.tension.direction = calculateTensionDirection(
+        state.scene.tension.level,
+        previousState?.scene?.tension?.level
+      );
+    }
 
     return { state, raw: response };
   } finally {
