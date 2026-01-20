@@ -10,33 +10,33 @@ import { getSettings } from '../settings';
 // ============================================
 
 export type PromptKey =
-  | 'time_datetime'
-  | 'time_delta'
-  | 'location_initial'
-  | 'location_update'
-  | 'climate_initial'
-  | 'climate_update'
-  | 'characters_initial'
-  | 'characters_update'
-  | 'scene_initial'
-  | 'scene_update';
+	| 'time_datetime'
+	| 'time_delta'
+	| 'location_initial'
+	| 'location_update'
+	| 'climate_initial'
+	| 'climate_update'
+	| 'characters_initial'
+	| 'characters_update'
+	| 'scene_initial'
+	| 'scene_update';
 
 export interface PromptPlaceholder {
-  name: string;
-  description: string;
-  example: string;
+	name: string;
+	description: string;
+	example: string;
 }
 
 export interface PromptDefinition {
-  key: PromptKey;
-  name: string;
-  description: string;
-  placeholders: PromptPlaceholder[];
-  default: string;
+	key: PromptKey;
+	name: string;
+	description: string;
+	placeholders: PromptPlaceholder[];
+	default: string;
 }
 
 export interface CustomPrompts {
-  [key: string]: string;
+	[key: string]: string;
 }
 
 // ============================================
@@ -44,56 +44,56 @@ export interface CustomPrompts {
 // ============================================
 
 const COMMON_PLACEHOLDERS: Record<string, PromptPlaceholder> = {
-  messages: {
-    name: '{{messages}}',
-    description: 'Recent roleplay messages formatted as "Name: message content"',
-    example: 'Elena: *She walked into the bar*\n\nMarcus: "You made it."',
-  },
-  characterInfo: {
-    name: '{{characterInfo}}',
-    description: 'Character name and description (only on initial extraction)',
-    example: 'Name: Elena\nDescription: A cunning thief with a heart of gold...',
-  },
-  userInfo: {
-    name: '{{userInfo}}',
-    description: 'User persona name and description (only on initial extraction)',
-    example: 'Name: Marcus\nDescription: A grizzled detective...',
-  },
-  previousState: {
-    name: '{{previousState}}',
-    description: 'JSON of the previous state for this extractor',
-    example: '{ "area": "Downtown", "place": "Bar", ... }',
-  },
-  schema: {
-    name: '{{schema}}',
-    description: 'JSON schema defining the expected output format',
-    example: '{ "type": "object", "properties": { ... } }',
-  },
-  schemaExample: {
-    name: '{{schemaExample}}',
-    description: 'Example output matching the schema',
-    example: '{ "area": "Downtown Seattle", ... }',
-  },
-  narrativeTime: {
-    name: '{{narrativeTime}}',
-    description: 'Current narrative time as formatted string',
-    example: 'Monday, June 15, 2024 at 2:30 PM',
-  },
-  location: {
-    name: '{{location}}',
-    description: 'Current location summary',
-    example: 'Downtown Seattle - The Rusty Nail bar (Corner booth)',
-  },
-  currentTime: {
-    name: '{{currentTime}}',
-    description: 'Current narrative time for context',
-    example: 'Monday, June 15, 2024 at 2:30 PM',
-  },
-  charactersSummary: {
-    name: '{{charactersSummary}}',
-    description: 'Brief summary of characters present with moods/activities',
-    example: 'Elena: anxious, hopeful - Watching the door\nMarcus: scheming - Drinking wine',
-  },
+	messages: {
+		name: '{{messages}}',
+		description: 'Recent roleplay messages formatted as "Name: message content"',
+		example: 'Elena: *She walked into the bar*\n\nMarcus: "You made it."',
+	},
+	characterInfo: {
+		name: '{{characterInfo}}',
+		description: 'Character name and description (only on initial extraction)',
+		example: 'Name: Elena\nDescription: A cunning thief with a heart of gold...',
+	},
+	userInfo: {
+		name: '{{userInfo}}',
+		description: 'User persona name and description (only on initial extraction)',
+		example: 'Name: Marcus\nDescription: A grizzled detective...',
+	},
+	previousState: {
+		name: '{{previousState}}',
+		description: 'JSON of the previous state for this extractor',
+		example: '{ "area": "Downtown", "place": "Bar", ... }',
+	},
+	schema: {
+		name: '{{schema}}',
+		description: 'JSON schema defining the expected output format',
+		example: '{ "type": "object", "properties": { ... } }',
+	},
+	schemaExample: {
+		name: '{{schemaExample}}',
+		description: 'Example output matching the schema',
+		example: '{ "area": "Downtown Seattle", ... }',
+	},
+	narrativeTime: {
+		name: '{{narrativeTime}}',
+		description: 'Current narrative time as formatted string',
+		example: 'Monday, June 15, 2024 at 2:30 PM',
+	},
+	location: {
+		name: '{{location}}',
+		description: 'Current location summary',
+		example: 'Downtown Seattle - The Rusty Nail bar (Corner booth)',
+	},
+	currentTime: {
+		name: '{{currentTime}}',
+		description: 'Current narrative time for context',
+		example: 'Monday, June 15, 2024 at 2:30 PM',
+	},
+	charactersSummary: {
+		name: '{{charactersSummary}}',
+		description: 'Brief summary of characters present with moods/activities',
+		example: 'Elena: anxious, hopeful - Watching the door\nMarcus: scheming - Drinking wine',
+	},
 };
 
 // ============================================
@@ -101,16 +101,16 @@ const COMMON_PLACEHOLDERS: Record<string, PromptPlaceholder> = {
 // ============================================
 
 export const DEFAULT_PROMPTS: Record<PromptKey, PromptDefinition> = {
-  time_datetime: {
-    key: 'time_datetime',
-    name: 'Time - Initial DateTime',
-    description: 'Extracts the narrative date and time from the scene opening',
-    placeholders: [
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze this roleplay scene opening and determine the narrative date and time. You must only return valid JSON with no commentary.
+	time_datetime: {
+		key: 'time_datetime',
+		name: 'Time - Initial DateTime',
+		description: 'Extracts the narrative date and time from the scene opening',
+		placeholders: [
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze this roleplay scene opening and determine the narrative date and time. You must only return valid JSON with no commentary.
 
 <instructions>
 - Determine the date and time when this scene takes place.
@@ -136,19 +136,19 @@ export const DEFAULT_PROMPTS: Record<PromptKey, PromptDefinition> = {
 </output_example>
 
 Extract the narrative date and time as valid JSON:`,
-  },
+	},
 
-  time_delta: {
-    key: 'time_delta',
-    name: 'Time - Delta',
-    description: 'Determines how much narrative time has passed in the messages',
-    placeholders: [
-      COMMON_PLACEHOLDERS.currentTime,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze these roleplay messages and determine how much narrative time has passed. You must only return valid JSON with no commentary.
+	time_delta: {
+		key: 'time_delta',
+		name: 'Time - Delta',
+		description: 'Determines how much narrative time has passed in the messages',
+		placeholders: [
+			COMMON_PLACEHOLDERS.currentTime,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze these roleplay messages and determine how much narrative time has passed. You must only return valid JSON with no commentary.
 
 <instructions>
 - Determine how much time passes WITHIN these messages based on their actual content.
@@ -186,19 +186,19 @@ Extract the narrative date and time as valid JSON:`,
 </output_format_example>
 
 Based on the actual content of the messages above, extract the time delta as valid JSON:`,
-  },
+	},
 
-  location_initial: {
-    key: 'location_initial',
-    name: 'Location - Initial',
-    description: 'Extracts location from the scene opening',
-    placeholders: [
-      COMMON_PLACEHOLDERS.characterInfo,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze this roleplay scene and extract the current location. You must only return valid JSON with no commentary.
+	location_initial: {
+		key: 'location_initial',
+		name: 'Location - Initial',
+		description: 'Extracts location from the scene opening',
+		placeholders: [
+			COMMON_PLACEHOLDERS.characterInfo,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze this roleplay scene and extract the current location. You must only return valid JSON with no commentary.
 
 <instructions>
 - Determine where this scene takes place.
@@ -226,19 +226,19 @@ Based on the actual content of the messages above, extract the time delta as val
 </output_example>
 
 Extract the location as valid JSON:`,
-  },
+	},
 
-  location_update: {
-    key: 'location_update',
-    name: 'Location - Update',
-    description: 'Updates location based on recent messages',
-    placeholders: [
-      COMMON_PLACEHOLDERS.previousState,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze these roleplay messages and extract any location changes. You must only return valid JSON with no commentary.
+	location_update: {
+		key: 'location_update',
+		name: 'Location - Update',
+		description: 'Updates location based on recent messages',
+		placeholders: [
+			COMMON_PLACEHOLDERS.previousState,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze these roleplay messages and extract any location changes. You must only return valid JSON with no commentary.
 
 <instructions>
 - Determine if the location has changed from the previous state.
@@ -266,21 +266,21 @@ Extract the location as valid JSON:`,
 </output_example>
 
 Extract the current location as valid JSON:`,
-  },
+	},
 
-  climate_initial: {
-    key: 'climate_initial',
-    name: 'Climate - Initial',
-    description: 'Extracts weather and temperature from scene opening',
-    placeholders: [
-      COMMON_PLACEHOLDERS.narrativeTime,
-      COMMON_PLACEHOLDERS.location,
-      COMMON_PLACEHOLDERS.characterInfo,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze this roleplay scene and determine the current climate/weather. You must only return valid JSON with no commentary.
+	climate_initial: {
+		key: 'climate_initial',
+		name: 'Climate - Initial',
+		description: 'Extracts weather and temperature from scene opening',
+		placeholders: [
+			COMMON_PLACEHOLDERS.narrativeTime,
+			COMMON_PLACEHOLDERS.location,
+			COMMON_PLACEHOLDERS.characterInfo,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze this roleplay scene and determine the current climate/weather. You must only return valid JSON with no commentary.
 
 <instructions>
 - Determine the weather and temperature for this scene.
@@ -317,21 +317,21 @@ Extract the current location as valid JSON:`,
 </output_example>
 
 Extract the climate as valid JSON:`,
-  },
+	},
 
-  climate_update: {
-    key: 'climate_update',
-    name: 'Climate - Update',
-    description: 'Updates weather/temperature based on recent messages',
-    placeholders: [
-      COMMON_PLACEHOLDERS.narrativeTime,
-      COMMON_PLACEHOLDERS.location,
-      COMMON_PLACEHOLDERS.previousState,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze these roleplay messages and determine if the climate has changed. You must only return valid JSON with no commentary.
+	climate_update: {
+		key: 'climate_update',
+		name: 'Climate - Update',
+		description: 'Updates weather/temperature based on recent messages',
+		placeholders: [
+			COMMON_PLACEHOLDERS.narrativeTime,
+			COMMON_PLACEHOLDERS.location,
+			COMMON_PLACEHOLDERS.previousState,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze these roleplay messages and determine if the climate has changed. You must only return valid JSON with no commentary.
 
 <instructions>
 - Check if weather or temperature has changed since the previous state.
@@ -367,21 +367,21 @@ Extract the climate as valid JSON:`,
 </output_example>
 
 Extract the current climate as valid JSON:`,
-  },
+	},
 
-  characters_initial: {
-    key: 'characters_initial',
-    name: 'Characters - Initial',
-    description: 'Extracts all character states from scene opening',
-    placeholders: [
-      COMMON_PLACEHOLDERS.userInfo,
-      COMMON_PLACEHOLDERS.characterInfo,
-      COMMON_PLACEHOLDERS.location,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze this roleplay scene and extract all character states. You must only return valid JSON with no commentary.
+	characters_initial: {
+		key: 'characters_initial',
+		name: 'Characters - Initial',
+		description: 'Extracts all character states from scene opening',
+		placeholders: [
+			COMMON_PLACEHOLDERS.userInfo,
+			COMMON_PLACEHOLDERS.characterInfo,
+			COMMON_PLACEHOLDERS.location,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze this roleplay scene and extract all character states. You must only return valid JSON with no commentary.
 
 <instructions>
 <general>
@@ -425,20 +425,20 @@ Extract the current climate as valid JSON:`,
 </output_example>
 
 Extract all characters as valid JSON array:`,
-  },
+	},
 
-  characters_update: {
-    key: 'characters_update',
-    name: 'Characters - Update',
-    description: 'Updates character states based on recent messages',
-    placeholders: [
-      COMMON_PLACEHOLDERS.location,
-      COMMON_PLACEHOLDERS.previousState,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze these roleplay messages and update character states. You must only return valid JSON with no commentary.
+	characters_update: {
+		key: 'characters_update',
+		name: 'Characters - Update',
+		description: 'Updates character states based on recent messages',
+		placeholders: [
+			COMMON_PLACEHOLDERS.location,
+			COMMON_PLACEHOLDERS.previousState,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze these roleplay messages and update character states. You must only return valid JSON with no commentary.
 
 <instructions>
 <general>
@@ -486,20 +486,20 @@ Extract all characters as valid JSON array:`,
 </output_example>
 
 Extract updated characters as valid JSON array:`,
-  },
+	},
 
-  scene_initial: {
-    key: 'scene_initial',
-    name: 'Scene - Initial',
-    description: 'Extracts scene topic, tone, tension, and events from opening',
-    placeholders: [
-      COMMON_PLACEHOLDERS.characterInfo,
-      COMMON_PLACEHOLDERS.charactersSummary,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze this roleplay scene and extract the scene state. You must only return valid JSON with no commentary.
+	scene_initial: {
+		key: 'scene_initial',
+		name: 'Scene - Initial',
+		description: 'Extracts scene topic, tone, tension, and events from opening',
+		placeholders: [
+			COMMON_PLACEHOLDERS.characterInfo,
+			COMMON_PLACEHOLDERS.charactersSummary,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze this roleplay scene and extract the scene state. You must only return valid JSON with no commentary.
 
 <instructions>
 <general>
@@ -540,20 +540,20 @@ Extract updated characters as valid JSON array:`,
 </output_example>
 
 Extract the scene state as valid JSON:`,
-  },
+	},
 
-  scene_update: {
-    key: 'scene_update',
-    name: 'Scene - Update',
-    description: 'Updates scene state based on recent messages',
-    placeholders: [
-      COMMON_PLACEHOLDERS.charactersSummary,
-      COMMON_PLACEHOLDERS.previousState,
-      COMMON_PLACEHOLDERS.messages,
-      COMMON_PLACEHOLDERS.schema,
-      COMMON_PLACEHOLDERS.schemaExample,
-    ],
-    default: `Analyze these roleplay messages and update the scene state. You must only return valid JSON with no commentary.
+	scene_update: {
+		key: 'scene_update',
+		name: 'Scene - Update',
+		description: 'Updates scene state based on recent messages',
+		placeholders: [
+			COMMON_PLACEHOLDERS.charactersSummary,
+			COMMON_PLACEHOLDERS.previousState,
+			COMMON_PLACEHOLDERS.messages,
+			COMMON_PLACEHOLDERS.schema,
+			COMMON_PLACEHOLDERS.schemaExample,
+		],
+		default: `Analyze these roleplay messages and update the scene state. You must only return valid JSON with no commentary.
 
 <instructions>
 <general>
@@ -596,7 +596,7 @@ Extract the scene state as valid JSON:`,
 </output_example>
 
 Extract the updated scene state as valid JSON:`,
-  },
+	},
 };
 
 // ============================================
@@ -607,42 +607,42 @@ Extract the updated scene state as valid JSON:`,
  * Get a prompt by key, using custom prompt from settings if available.
  */
 export function getPrompt(key: PromptKey): string {
-  const settings = getSettings();
-  const customPrompts = settings.customPrompts as CustomPrompts | undefined;
+	const settings = getSettings();
+	const customPrompts = settings.customPrompts as CustomPrompts | undefined;
 
-  if (customPrompts?.[key]) {
-    return customPrompts[key];
-  }
+	if (customPrompts?.[key]) {
+		return customPrompts[key];
+	}
 
-  return DEFAULT_PROMPTS[key].default;
+	return DEFAULT_PROMPTS[key].default;
 }
 
 /**
  * Get all prompt definitions for UI display.
  */
 export function getAllPromptDefinitions(): PromptDefinition[] {
-  return Object.values(DEFAULT_PROMPTS);
+	return Object.values(DEFAULT_PROMPTS);
 }
 
 /**
  * Get a specific prompt definition.
  */
 export function getPromptDefinition(key: PromptKey): PromptDefinition {
-  return DEFAULT_PROMPTS[key];
+	return DEFAULT_PROMPTS[key];
 }
 
 /**
  * Check if a prompt has been customized.
  */
 export function isPromptCustomized(key: PromptKey): boolean {
-  const settings = getSettings();
-  const customPrompts = settings.customPrompts as CustomPrompts | undefined;
-  return !!customPrompts?.[key];
+	const settings = getSettings();
+	const customPrompts = settings.customPrompts as CustomPrompts | undefined;
+	return !!customPrompts?.[key];
 }
 
 /**
  * Get placeholder documentation for a prompt.
  */
 export function getPlaceholderDocs(key: PromptKey): PromptPlaceholder[] {
-  return DEFAULT_PROMPTS[key].placeholders;
+	return DEFAULT_PROMPTS[key].placeholders;
 }

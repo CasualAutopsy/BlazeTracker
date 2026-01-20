@@ -37912,15 +37912,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   CHARACTERS_SCHEMA: () => (/* binding */ CHARACTERS_SCHEMA),
 /* harmony export */   extractCharacters: () => (/* binding */ extractCharacters)
 /* harmony export */ });
-/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
-/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _utils_generator__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/generator */ "./src/utils/generator.ts");
+/* harmony import */ var _utils_json__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/json */ "./src/utils/json.ts");
 
 
 
-const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+
 // ============================================
-// Schema
+// Schema & Example
 // ============================================
 const CHARACTERS_SCHEMA = {
     type: 'array',
@@ -37931,47 +37932,76 @@ const CHARACTERS_SCHEMA = {
         properties: {
             name: {
                 type: 'string',
-                description: "Character's name as used in the scene"
+                description: "Character's name as used in the scene",
             },
             goals: {
                 type: 'array',
                 description: "Character's short-term goals",
-                items: { type: 'string' }
+                items: { type: 'string' },
             },
             position: {
                 type: 'string',
-                description: "Physical position and where (e.g. 'sitting at the bar', 'leaning against the wall'). Be detailed about who they're facing/interacting with."
+                description: "Physical position and where (e.g. 'sitting at the bar', 'leaning against the wall'). Be detailed about who they're facing/interacting with.",
             },
             activity: {
                 type: 'string',
-                description: "Current activity if any (e.g. 'nursing a whiskey', 'texting on phone')"
+                description: "Current activity if any (e.g. 'nursing a whiskey', 'texting on phone')",
             },
             mood: {
                 type: 'array',
                 description: 'Current emotional states',
                 minItems: 1,
                 maxItems: 5,
-                items: { type: 'string' }
+                items: { type: 'string' },
             },
             physicalState: {
                 type: 'array',
                 description: 'Physical conditions affecting the character',
                 maxItems: 5,
-                items: { type: 'string' }
+                items: { type: 'string' },
             },
             outfit: {
                 type: 'object',
                 description: 'Clothing items currently worn. Set to null if removed or if species would not wear clothes (pony, Pokémon, etc.)',
                 properties: {
-                    head: { type: ['string', 'null'], description: 'Headwear (null if none)' },
-                    jacket: { type: ['string', 'null'], description: 'Outer layer (null if none)' },
-                    torso: { type: ['string', 'null'], description: 'Shirt/top (null if none)' },
-                    legs: { type: ['string', 'null'], description: 'Pants/skirt (null if none)' },
-                    underwear: { type: ['string', 'null'], description: 'Underwear, be descriptive if partially removed' },
-                    socks: { type: ['string', 'null'], description: 'Socks/stockings, specify which foot if only one' },
-                    footwear: { type: ['string', 'null'], description: 'Shoes/boots, specify which foot if only one' }
+                    head: {
+                        type: ['string', 'null'],
+                        description: 'Headwear (null if none)',
+                    },
+                    jacket: {
+                        type: ['string', 'null'],
+                        description: 'Outer layer (null if none)',
+                    },
+                    torso: {
+                        type: ['string', 'null'],
+                        description: 'Shirt/top (null if none)',
+                    },
+                    legs: {
+                        type: ['string', 'null'],
+                        description: 'Pants/skirt (null if none)',
+                    },
+                    underwear: {
+                        type: ['string', 'null'],
+                        description: 'Underwear, be descriptive if partially removed',
+                    },
+                    socks: {
+                        type: ['string', 'null'],
+                        description: 'Socks/stockings, specify which foot if only one',
+                    },
+                    footwear: {
+                        type: ['string', 'null'],
+                        description: 'Shoes/boots, specify which foot if only one',
+                    },
                 },
-                required: ['head', 'jacket', 'torso', 'legs', 'underwear', 'socks', 'footwear']
+                required: [
+                    'head',
+                    'jacket',
+                    'torso',
+                    'legs',
+                    'underwear',
+                    'socks',
+                    'footwear',
+                ],
             },
             dispositions: {
                 type: 'object',
@@ -37979,12 +38009,20 @@ const CHARACTERS_SCHEMA = {
                 additionalProperties: {
                     type: 'array',
                     maxItems: 5,
-                    items: { type: 'string' }
-                }
-            }
+                    items: { type: 'string' },
+                },
+            },
         },
-        required: ['name', 'position', 'activity', 'mood', 'physicalState', 'outfit', 'dispositions']
-    }
+        required: [
+            'name',
+            'position',
+            'activity',
+            'mood',
+            'physicalState',
+            'outfit',
+            'dispositions',
+        ],
+    },
 };
 const CHARACTERS_EXAMPLE = JSON.stringify([
     {
@@ -38001,109 +38039,56 @@ const CHARACTERS_EXAMPLE = JSON.stringify([
             legs: 'Black jeans',
             underwear: 'Black lace bra and matching panties',
             socks: 'Black tights',
-            footwear: 'Black ankle boots'
+            footwear: 'Black ankle boots',
         },
         dispositions: {
             Marcus: ['suspicious', 'curious'],
-            Sarah: ['trusting', 'protective']
-        }
-    }
+            Sarah: ['trusting', 'protective'],
+        },
+    },
 ], null, 2);
+// ============================================
+// Constants
+// ============================================
+const SYSTEM_PROMPT = 'You are a character state analysis agent for roleplay scenes. Return only valid JSON.';
+const TEMPERATURE = 0.7;
 // ============================================
 // Public API
 // ============================================
 async function extractCharacters(isInitial, messages, location, userInfo, characterInfo, previousCharacters, abortSignal) {
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
     const locationStr = `${location.area} - ${location.place} (${location.position})`;
     const schemaStr = JSON.stringify(CHARACTERS_SCHEMA, null, 2);
-    let prompt;
-    if (isInitial) {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('characters_initial')
+    const prompt = isInitial
+        ? (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('characters_initial')
             .replace('{{userInfo}}', userInfo)
             .replace('{{characterInfo}}', characterInfo)
             .replace('{{location}}', locationStr)
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
-            .replace('{{schemaExample}}', CHARACTERS_EXAMPLE);
-    }
-    else {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('characters_update')
+            .replace('{{schemaExample}}', CHARACTERS_EXAMPLE)
+        : (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('characters_update')
             .replace('{{location}}', locationStr)
             .replace('{{previousState}}', JSON.stringify(previousCharacters, null, 2))
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
             .replace('{{schemaExample}}', CHARACTERS_EXAMPLE);
-    }
-    const llmMessages = [
-        { role: 'system', content: 'You are a character state analysis agent for roleplay scenes. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-    ];
-    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
-    return validateCharacters(parseJsonResponse(response));
-}
-// ============================================
-// Internal: LLM Communication
-// ============================================
-function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
-    return new Promise((resolve, reject) => {
-        if (abortSignal?.aborted) {
-            return reject(new DOMException('Aborted', 'AbortError'));
-        }
-        const abortController = new AbortController();
-        if (abortSignal) {
-            abortSignal.addEventListener('abort', () => abortController.abort());
-        }
-        generator.generateRequest({
-            profileId,
-            prompt: messages,
-            maxTokens,
-            custom: { signal: abortController.signal },
-            overridePayload: {
-                temperature: 0.7,
-            }
-        }, {
-            abortController,
-            onFinish: (requestId, data, error) => {
-                if (error) {
-                    return reject(error);
-                }
-                if (!data) {
-                    return reject(new DOMException('Request aborted', 'AbortError'));
-                }
-                const content = data.content;
-                if (typeof content === 'string') {
-                    resolve(content);
-                }
-                else {
-                    resolve(JSON.stringify(content));
-                }
-            },
-        });
+    const llmMessages = (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.buildExtractionMessages)(SYSTEM_PROMPT, prompt);
+    const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
+        profileId: settings.profileId,
+        maxTokens: settings.maxResponseTokens,
+        temperature: TEMPERATURE,
+        abortSignal,
     });
+    const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
+        shape: 'array',
+        moduleName: 'BlazeTracker/Characters',
+    });
+    return validateCharacters(parsed);
 }
 // ============================================
-// Internal: Response Parsing
+// Validation
 // ============================================
-function parseJsonResponse(response) {
-    let jsonStr = response.trim();
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-    }
-    // For characters, we expect an array
-    const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-    if (arrayMatch) {
-        jsonStr = arrayMatch[0];
-    }
-    try {
-        return JSON.parse(jsonStr);
-    }
-    catch (e) {
-        console.error('[BlazeTracker/Characters] Failed to parse response:', e);
-        console.error('[BlazeTracker/Characters] Response was:', response);
-        throw new Error('Failed to parse characters extraction response as JSON');
-    }
-}
 function validateCharacters(data) {
     if (!Array.isArray(data)) {
         throw new Error('Invalid characters: expected array');
@@ -38111,33 +38096,33 @@ function validateCharacters(data) {
     return data.map(validateCharacter);
 }
 function validateCharacter(data) {
-    if (!data.name || typeof data.name !== 'string') {
+    if (!(0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.isObject)(data)) {
+        throw new Error('Invalid character: expected object');
+    }
+    const name = data.name;
+    if (!name || typeof name !== 'string') {
         throw new Error('Invalid character: missing name');
     }
-    if (!data.position || typeof data.position !== 'string') {
-        throw new Error(`Invalid character ${data.name}: missing position`);
+    const position = data.position;
+    if (!position || typeof position !== 'string') {
+        throw new Error(`Invalid character ${name}: missing position`);
     }
-    // Ensure mood is an array
-    let mood = data.mood;
-    if (!Array.isArray(mood)) {
-        mood = mood ? [mood] : ['neutral'];
-    }
-    mood = mood.slice(0, 5);
-    // Validate outfit
     const outfit = validateOutfit(data.outfit);
     return {
-        name: data.name,
-        position: data.position,
+        name,
+        position,
         activity: typeof data.activity === 'string' ? data.activity : undefined,
-        goals: Array.isArray(data.goals) ? data.goals : [],
-        mood,
-        physicalState: Array.isArray(data.physicalState) ? data.physicalState.slice(0, 5) : undefined,
+        goals: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringArray)(data.goals),
+        mood: Array.isArray(data.mood) ? (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringArray)(data.mood, 5) : ['neutral'],
+        physicalState: Array.isArray(data.physicalState)
+            ? (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringArray)(data.physicalState, 5)
+            : undefined,
         outfit,
         dispositions: validateDispositions(data.dispositions),
     };
 }
 function validateOutfit(data) {
-    if (!data || typeof data !== 'object') {
+    if (!(0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.isObject)(data)) {
         return {
             head: null,
             jacket: null,
@@ -38149,23 +38134,23 @@ function validateOutfit(data) {
         };
     }
     return {
-        head: typeof data.head === 'string' ? data.head : null,
-        jacket: typeof data.jacket === 'string' ? data.jacket : null,
-        torso: typeof data.torso === 'string' ? data.torso : null,
-        legs: typeof data.legs === 'string' ? data.legs : null,
-        underwear: typeof data.underwear === 'string' ? data.underwear : null,
-        socks: typeof data.socks === 'string' ? data.socks : null,
-        footwear: typeof data.footwear === 'string' ? data.footwear : null,
+        head: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringOrNull)(data.head),
+        jacket: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringOrNull)(data.jacket),
+        torso: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringOrNull)(data.torso),
+        legs: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringOrNull)(data.legs),
+        underwear: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringOrNull)(data.underwear),
+        socks: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringOrNull)(data.socks),
+        footwear: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringOrNull)(data.footwear),
     };
 }
 function validateDispositions(data) {
-    if (!data || typeof data !== 'object') {
+    if (!(0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.isObject)(data)) {
         return undefined;
     }
     const result = {};
     for (const [key, value] of Object.entries(data)) {
         if (Array.isArray(value)) {
-            result[key] = value.filter(v => typeof v === 'string').slice(0, 5);
+            result[key] = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringArray)(value, 5);
         }
     }
     return Object.keys(result).length > 0 ? result : undefined;
@@ -38185,15 +38170,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   CLIMATE_SCHEMA: () => (/* binding */ CLIMATE_SCHEMA),
 /* harmony export */   extractClimate: () => (/* binding */ extractClimate)
 /* harmony export */ });
-/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
-/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _utils_generator__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/generator */ "./src/utils/generator.ts");
+/* harmony import */ var _utils_json__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/json */ "./src/utils/json.ts");
 
 
 
-const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+
 // ============================================
-// Schema
+// Schema & Example
 // ============================================
 const CLIMATE_SCHEMA = {
     type: 'object',
@@ -38203,60 +38189,85 @@ const CLIMATE_SCHEMA = {
         weather: {
             type: 'string',
             enum: ['sunny', 'cloudy', 'snowy', 'rainy', 'windy', 'thunderstorm'],
-            description: 'The current weather in the locale (if characters are indoors, give the weather outdoors)'
+            description: 'The current weather in the locale (if characters are indoors, give the weather outdoors)',
         },
         temperature: {
             type: 'number',
-            description: 'Current temperature in Fahrenheit (if characters are indoors, give the indoor temperature)'
-        }
+            description: 'Current temperature in Fahrenheit (if characters are indoors, give the indoor temperature)',
+        },
     },
-    required: ['weather', 'temperature']
+    required: ['weather', 'temperature'],
 };
 const CLIMATE_EXAMPLE = JSON.stringify({
     weather: 'rainy',
-    temperature: 52
+    temperature: 52,
 }, null, 2);
+// ============================================
+// Constants
+// ============================================
+const SYSTEM_PROMPT = 'You are a climate analysis agent for roleplay scenes. Return only valid JSON.';
+const TEMPERATURE = 0.3;
+const VALID_WEATHER = [
+    'sunny',
+    'cloudy',
+    'snowy',
+    'rainy',
+    'windy',
+    'thunderstorm',
+];
 // ============================================
 // Public API
 // ============================================
 async function extractClimate(isInitial, messages, narrativeTime, location, characterInfo, previousClimate, abortSignal) {
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
     const timeStr = formatNarrativeTime(narrativeTime);
     const locationStr = `${location.area} - ${location.place} (${location.position})`;
     const schemaStr = JSON.stringify(CLIMATE_SCHEMA, null, 2);
-    let prompt;
-    if (isInitial) {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('climate_initial')
+    const prompt = isInitial
+        ? (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('climate_initial')
             .replace('{{narrativeTime}}', timeStr)
             .replace('{{location}}', locationStr)
             .replace('{{characterInfo}}', characterInfo)
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
-            .replace('{{schemaExample}}', CLIMATE_EXAMPLE);
-    }
-    else {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('climate_update')
+            .replace('{{schemaExample}}', CLIMATE_EXAMPLE)
+        : (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('climate_update')
             .replace('{{narrativeTime}}', timeStr)
             .replace('{{location}}', locationStr)
             .replace('{{previousState}}', JSON.stringify(previousClimate, null, 2))
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
             .replace('{{schemaExample}}', CLIMATE_EXAMPLE);
-    }
-    const llmMessages = [
-        { role: 'system', content: 'You are a climate analysis agent for roleplay scenes. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-    ];
-    const response = await makeGeneratorRequest(llmMessages, settings.profileId, 50, abortSignal);
-    return validateClimate(parseJsonResponse(response));
+    const llmMessages = (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.buildExtractionMessages)(SYSTEM_PROMPT, prompt);
+    const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
+        profileId: settings.profileId,
+        maxTokens: settings.maxResponseTokens,
+        temperature: TEMPERATURE,
+        abortSignal,
+    });
+    const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
+        shape: 'object',
+        moduleName: 'BlazeTracker/Climate',
+    });
+    return validateClimate(parsed);
 }
 // ============================================
 // Internal: Helpers
 // ============================================
 function formatNarrativeTime(time) {
     const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
     ];
     const hour12 = time.hour % 12 || 12;
     const ampm = time.hour < 12 ? 'AM' : 'PM';
@@ -38264,73 +38275,17 @@ function formatNarrativeTime(time) {
     return `${time.dayOfWeek}, ${monthNames[time.month - 1]} ${time.day}, ${time.year} at ${hour12}:${minuteStr} ${ampm}`;
 }
 // ============================================
-// Internal: LLM Communication
+// Validation
 // ============================================
-function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
-    return new Promise((resolve, reject) => {
-        if (abortSignal?.aborted) {
-            return reject(new DOMException('Aborted', 'AbortError'));
-        }
-        const abortController = new AbortController();
-        if (abortSignal) {
-            abortSignal.addEventListener('abort', () => abortController.abort());
-        }
-        generator.generateRequest({
-            profileId,
-            prompt: messages,
-            maxTokens,
-            custom: { signal: abortController.signal },
-            overridePayload: {
-                temperature: 0.3,
-            }
-        }, {
-            abortController,
-            onFinish: (requestId, data, error) => {
-                if (error) {
-                    return reject(error);
-                }
-                if (!data) {
-                    return reject(new DOMException('Request aborted', 'AbortError'));
-                }
-                const content = data.content;
-                if (typeof content === 'string') {
-                    resolve(content);
-                }
-                else {
-                    resolve(JSON.stringify(content));
-                }
-            },
-        });
-    });
-}
-// ============================================
-// Internal: Response Parsing
-// ============================================
-function parseJsonResponse(response) {
-    let jsonStr = response.trim();
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-    }
-    const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-        jsonStr = objectMatch[0];
-    }
-    try {
-        return JSON.parse(jsonStr);
-    }
-    catch (e) {
-        console.error('[BlazeTracker/Climate] Failed to parse response:', e);
-        console.error('[BlazeTracker/Climate] Response was:', response);
-        throw new Error('Failed to parse climate extraction response as JSON');
-    }
-}
-const VALID_WEATHER = ['sunny', 'cloudy', 'snowy', 'rainy', 'windy', 'thunderstorm'];
 function validateClimate(data) {
-    const weather = VALID_WEATHER.includes(data.weather) ? data.weather : 'sunny';
-    const temperature = typeof data.temperature === 'number'
-        ? Math.round(Math.max(-100, Math.min(150, data.temperature)))
-        : 70;
+    if (typeof data !== 'object' || data === null) {
+        throw new Error('Invalid climate: expected object');
+    }
+    const obj = data;
+    const weather = VALID_WEATHER.includes(obj.weather)
+        ? obj.weather
+        : 'sunny';
+    const temperature = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.temperature, 70);
     return { weather, temperature };
 }
 
@@ -38345,153 +38300,108 @@ function validateClimate(data) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   LOCATION_SCHEMA: () => (/* binding */ LOCATION_SCHEMA),
 /* harmony export */   extractLocation: () => (/* binding */ extractLocation)
 /* harmony export */ });
-/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
-/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _utils_generator__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/generator */ "./src/utils/generator.ts");
+/* harmony import */ var _utils_json__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/json */ "./src/utils/json.ts");
 
 
 
-const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+
 // ============================================
-// Schema
+// Schema & Example
 // ============================================
 const LOCATION_SCHEMA = {
     type: 'object',
-    description: 'Current location in the scene',
-    additionalProperties: false,
     properties: {
         area: {
             type: 'string',
-            description: "General area: city, district, or region (e.g. 'The Glossy Mountains', 'Sherwood Forest', 'London, UK', 'Ponyville, Equestria')"
+            description: 'Broad area or region (city, town, region, etc.)',
         },
         place: {
             type: 'string',
-            description: "Specific place: building, establishment, room (e.g. 'The Rusty Nail bar', 'Elena's bedroom', 'Industrial Estate Parking Lot')"
+            description: 'Specific location within the area (building, landmark, etc.)',
         },
         position: {
             type: 'string',
-            description: "Position within place - a room or local landmark. Do not mention characters/objects or scene actions (e.g. 'By the dumpster', 'The corner booth', 'In the jacuzzi', 'Near the bathroom door')"
+            description: 'Exact position within the place (room, corner, etc.)',
         },
         props: {
             type: 'array',
-            description: 'Nearby items affecting the scene. Add details where relevant (e.g. "TV - showing a western", "half-empty wine bottle")',
+            description: 'Notable items or features in the immediate environment',
             items: {
                 type: 'string',
-                description: 'A nearby item which is part of the scene, detailed'
+                description: 'A nearby item which is part of the scene, detailed',
             },
-            maxItems: 10
-        }
+            maxItems: 10,
+        },
     },
-    required: ['area', 'place', 'position', 'props']
+    required: ['area', 'place', 'position', 'props'],
 };
 const LOCATION_EXAMPLE = JSON.stringify({
     area: 'Downtown Seattle',
     place: 'The Rusty Nail bar',
     position: 'Corner booth near the jukebox',
-    props: ['Jukebox playing soft rock', 'Empty beer glasses', 'Bowl of peanuts', 'Flickering neon sign']
+    props: [
+        'Jukebox playing soft rock',
+        'Empty beer glasses',
+        'Bowl of peanuts',
+        'Flickering neon sign',
+    ],
 }, null, 2);
+// ============================================
+// Constants
+// ============================================
+const SYSTEM_PROMPT = 'You are a location analysis agent for roleplay scenes. Return only valid JSON.';
+const TEMPERATURE = 0.5;
 // ============================================
 // Public API
 // ============================================
 async function extractLocation(isInitial, messages, characterInfo, previousLocation, abortSignal) {
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
     const schemaStr = JSON.stringify(LOCATION_SCHEMA, null, 2);
-    let prompt;
-    if (isInitial) {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('location_initial')
+    const prompt = isInitial
+        ? (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('location_initial')
             .replace('{{characterInfo}}', characterInfo)
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
-            .replace('{{schemaExample}}', LOCATION_EXAMPLE);
-    }
-    else {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('location_update')
+            .replace('{{schemaExample}}', LOCATION_EXAMPLE)
+        : (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('location_update')
             .replace('{{previousState}}', JSON.stringify(previousLocation, null, 2))
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
             .replace('{{schemaExample}}', LOCATION_EXAMPLE);
-    }
-    const llmMessages = [
-        { role: 'system', content: 'You are a location analysis agent for roleplay scenes. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-    ];
-    const response = await makeGeneratorRequest(llmMessages, settings.profileId, 200, abortSignal);
-    return validateLocation(parseJsonResponse(response));
-}
-// ============================================
-// Internal: LLM Communication
-// ============================================
-function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
-    return new Promise((resolve, reject) => {
-        if (abortSignal?.aborted) {
-            return reject(new DOMException('Aborted', 'AbortError'));
-        }
-        const abortController = new AbortController();
-        if (abortSignal) {
-            abortSignal.addEventListener('abort', () => abortController.abort());
-        }
-        generator.generateRequest({
-            profileId,
-            prompt: messages,
-            maxTokens,
-            custom: { signal: abortController.signal },
-            overridePayload: {
-                temperature: 0.5,
-            }
-        }, {
-            abortController,
-            onFinish: (requestId, data, error) => {
-                if (error) {
-                    return reject(error);
-                }
-                if (!data) {
-                    return reject(new DOMException('Request aborted', 'AbortError'));
-                }
-                const content = data.content;
-                if (typeof content === 'string') {
-                    resolve(content);
-                }
-                else {
-                    resolve(JSON.stringify(content));
-                }
-            },
-        });
+    const llmMessages = (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.buildExtractionMessages)(SYSTEM_PROMPT, prompt);
+    const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
+        profileId: settings.profileId,
+        maxTokens: settings.maxResponseTokens,
+        temperature: TEMPERATURE,
+        abortSignal,
     });
+    const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
+        shape: 'object',
+        moduleName: 'BlazeTracker/Location',
+    });
+    return validateLocation(parsed);
 }
 // ============================================
-// Internal: Response Parsing
+// Validation
 // ============================================
-function parseJsonResponse(response) {
-    let jsonStr = response.trim();
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-    }
-    const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-        jsonStr = objectMatch[0];
-    }
-    try {
-        return JSON.parse(jsonStr);
-    }
-    catch (e) {
-        console.error('[BlazeTracker/Location] Failed to parse response:', e);
-        console.error('[BlazeTracker/Location] Response was:', response);
-        throw new Error('Failed to parse location extraction response as JSON');
-    }
-}
 function validateLocation(data) {
-    if (!data.place || typeof data.place !== 'string') {
+    if (typeof data !== 'object' || data === null) {
+        throw new Error('Invalid location: expected object');
+    }
+    const obj = data;
+    if (!obj.place || typeof obj.place !== 'string') {
         throw new Error('Invalid location: missing or invalid place');
     }
     return {
-        area: typeof data.area === 'string' ? data.area : 'Unknown Area',
-        place: data.place,
-        position: typeof data.position === 'string' ? data.position : 'Main area',
-        props: Array.isArray(data.props) ? data.props.slice(0, 10) : [],
+        area: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asString)(obj.area, 'Unknown Area'),
+        place: obj.place,
+        position: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asString)(obj.position, 'Main area'),
+        props: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringArray)(obj.props, 10),
     };
 }
 
@@ -38510,17 +38420,18 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   extractScene: () => (/* binding */ extractScene),
 /* harmony export */   shouldExtractScene: () => (/* binding */ shouldExtractScene)
 /* harmony export */ });
-/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
-/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
-/* harmony import */ var _utils_tension__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/tension */ "./src/utils/tension.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _utils_generator__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/generator */ "./src/utils/generator.ts");
+/* harmony import */ var _utils_json__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/json */ "./src/utils/json.ts");
+/* harmony import */ var _utils_tension__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../utils/tension */ "./src/utils/tension.ts");
 
 
 
 
-const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+
 // ============================================
-// Schema
+// Schema & Example
 // ============================================
 const SCENE_SCHEMA = {
     type: 'object',
@@ -38529,11 +38440,11 @@ const SCENE_SCHEMA = {
     properties: {
         topic: {
             type: 'string',
-            description: '3-5 words describing the main topic(s) of the current interaction'
+            description: '3-5 words describing the main topic(s) of the current interaction',
         },
         tone: {
             type: 'string',
-            description: 'Dominant emotional tone of the scene (2-3 words)'
+            description: 'Dominant emotional tone of the scene (2-3 words)',
         },
         tension: {
             type: 'object',
@@ -38542,32 +38453,48 @@ const SCENE_SCHEMA = {
             properties: {
                 level: {
                     type: 'string',
-                    enum: ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive']
+                    enum: [
+                        'relaxed',
+                        'aware',
+                        'guarded',
+                        'tense',
+                        'charged',
+                        'volatile',
+                        'explosive',
+                    ],
                 },
                 direction: {
                     type: 'string',
                     enum: ['escalating', 'stable', 'decreasing'],
-                    description: 'Set based on comparison with previous level - will be recalculated'
+                    description: 'Set based on comparison with previous level - will be recalculated',
                 },
                 type: {
                     type: 'string',
-                    enum: ['confrontation', 'intimate', 'vulnerable', 'celebratory', 'negotiation', 'suspense', 'conversation']
-                }
+                    enum: [
+                        'confrontation',
+                        'intimate',
+                        'vulnerable',
+                        'celebratory',
+                        'negotiation',
+                        'suspense',
+                        'conversation',
+                    ],
+                },
             },
-            required: ['level', 'direction', 'type']
+            required: ['level', 'direction', 'type'],
         },
         recentEvents: {
             type: 'array',
             description: 'List of significant recent events (max 5). Prune resolved/superseded events, keep most salient.',
             items: {
                 type: 'string',
-                description: 'A significant event affecting the scene'
+                description: 'A significant event affecting the scene',
             },
             minItems: 1,
-            maxItems: 5
-        }
+            maxItems: 5,
+        },
     },
-    required: ['topic', 'tone', 'tension', 'recentEvents']
+    required: ['topic', 'tone', 'tension', 'recentEvents'],
 };
 const SCENE_EXAMPLE = JSON.stringify({
     topic: "Marcus's heist plans",
@@ -38575,143 +38502,117 @@ const SCENE_EXAMPLE = JSON.stringify({
     tension: {
         level: 'tense',
         direction: 'escalating',
-        type: 'negotiation'
+        type: 'negotiation',
     },
     recentEvents: [
-        "Marcus invited Elena and Sarah to discuss a jewellery heist",
-        "Marcus discovered that Sarah has stolen a rare painting"
-    ]
+        'Marcus invited Elena and Sarah to discuss a jewellery heist',
+        'Marcus discovered that Sarah has stolen a rare painting',
+    ],
 }, null, 2);
+// ============================================
+// Constants
+// ============================================
+const SYSTEM_PROMPT = 'You are a scene analysis agent for roleplay. Return only valid JSON.';
+const TEMPERATURE = 0.6;
+const VALID_TENSION_LEVELS = [
+    'relaxed',
+    'aware',
+    'guarded',
+    'tense',
+    'charged',
+    'volatile',
+    'explosive',
+];
+const VALID_TENSION_DIRECTIONS = [
+    'escalating',
+    'stable',
+    'decreasing',
+];
+const VALID_TENSION_TYPES = [
+    'confrontation',
+    'intimate',
+    'vulnerable',
+    'celebratory',
+    'negotiation',
+    'suspense',
+    'conversation',
+];
 // ============================================
 // Public API
 // ============================================
 async function extractScene(isInitial, messages, characters, characterInfo, previousScene, abortSignal) {
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
     // Create a brief summary of characters for context
     const charactersSummary = characters
         .map(c => `${c.name}: ${c.mood.join(', ')} - ${c.activity || c.position}`)
         .join('\n');
     const schemaStr = JSON.stringify(SCENE_SCHEMA, null, 2);
-    let prompt;
-    if (isInitial) {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('scene_initial')
+    const prompt = isInitial
+        ? (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('scene_initial')
             .replace('{{characterInfo}}', characterInfo)
             .replace('{{charactersSummary}}', charactersSummary)
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
-            .replace('{{schemaExample}}', SCENE_EXAMPLE);
-    }
-    else {
-        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('scene_update')
+            .replace('{{schemaExample}}', SCENE_EXAMPLE)
+        : (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('scene_update')
             .replace('{{charactersSummary}}', charactersSummary)
             .replace('{{previousState}}', JSON.stringify(previousScene, null, 2))
             .replace('{{messages}}', messages)
             .replace('{{schema}}', schemaStr)
             .replace('{{schemaExample}}', SCENE_EXAMPLE);
-    }
-    const llmMessages = [
-        { role: 'system', content: 'You are a scene analysis agent for roleplay. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-    ];
-    const response = await makeGeneratorRequest(llmMessages, settings.profileId, 200, abortSignal);
-    const scene = validateScene(parseJsonResponse(response));
+    const llmMessages = (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.buildExtractionMessages)(SYSTEM_PROMPT, prompt);
+    const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
+        profileId: settings.profileId,
+        maxTokens: settings.maxResponseTokens,
+        temperature: TEMPERATURE,
+        abortSignal,
+    });
+    const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
+        shape: 'object',
+        moduleName: 'BlazeTracker/Scene',
+    });
+    const scene = validateScene(parsed);
     // Recalculate tension direction based on previous state
-    scene.tension.direction = (0,_utils_tension__WEBPACK_IMPORTED_MODULE_3__.calculateTensionDirection)(scene.tension.level, previousScene?.tension?.level);
+    scene.tension.direction = (0,_utils_tension__WEBPACK_IMPORTED_MODULE_4__.calculateTensionDirection)(scene.tension.level, previousScene?.tension?.level);
     return scene;
 }
 /**
  * Determine if scene extraction should run for this message.
  * Returns true if this is an assistant message (every 2nd message).
  */
-function shouldExtractScene(messageId, isAssistantMessage, isInitial) {
+function shouldExtractScene(_messageId, isAssistantMessage) {
     // Only extract scene after assistant responses
-    return isAssistantMessage || isInitial;
+    return isAssistantMessage;
 }
 // ============================================
-// Internal: LLM Communication
+// Validation
 // ============================================
-function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
-    return new Promise((resolve, reject) => {
-        if (abortSignal?.aborted) {
-            return reject(new DOMException('Aborted', 'AbortError'));
-        }
-        const abortController = new AbortController();
-        if (abortSignal) {
-            abortSignal.addEventListener('abort', () => abortController.abort());
-        }
-        generator.generateRequest({
-            profileId,
-            prompt: messages,
-            maxTokens,
-            custom: { signal: abortController.signal },
-            overridePayload: {
-                temperature: 0.6,
-            }
-        }, {
-            abortController,
-            onFinish: (requestId, data, error) => {
-                if (error) {
-                    return reject(error);
-                }
-                if (!data) {
-                    return reject(new DOMException('Request aborted', 'AbortError'));
-                }
-                const content = data.content;
-                if (typeof content === 'string') {
-                    resolve(content);
-                }
-                else {
-                    resolve(JSON.stringify(content));
-                }
-            },
-        });
-    });
-}
-// ============================================
-// Internal: Response Parsing
-// ============================================
-function parseJsonResponse(response) {
-    let jsonStr = response.trim();
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-    }
-    const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-        jsonStr = objectMatch[0];
-    }
-    try {
-        return JSON.parse(jsonStr);
-    }
-    catch (e) {
-        console.error('[BlazeTracker/Scene] Failed to parse response:', e);
-        console.error('[BlazeTracker/Scene] Response was:', response);
-        throw new Error('Failed to parse scene extraction response as JSON');
-    }
-}
-const VALID_TENSION_LEVELS = ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'];
-const VALID_TENSION_DIRECTIONS = ['escalating', 'stable', 'decreasing'];
-const VALID_TENSION_TYPES = ['confrontation', 'intimate', 'vulnerable', 'celebratory', 'negotiation', 'suspense', 'conversation'];
 function validateScene(data) {
+    if (!(0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.isObject)(data)) {
+        throw new Error('Invalid scene: expected object');
+    }
     if (!data.topic || typeof data.topic !== 'string') {
         throw new Error('Invalid scene: missing topic');
     }
     // Validate tension
-    const tension = data.tension || {};
-    const level = VALID_TENSION_LEVELS.includes(tension.level) ? tension.level : 'relaxed';
-    const direction = VALID_TENSION_DIRECTIONS.includes(tension.direction) ? tension.direction : 'stable';
-    const type = VALID_TENSION_TYPES.includes(tension.type) ? tension.type : 'conversation';
+    const tensionData = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.isObject)(data.tension) ? data.tension : {};
+    const level = VALID_TENSION_LEVELS.includes(tensionData.level)
+        ? tensionData.level
+        : 'relaxed';
+    const direction = VALID_TENSION_DIRECTIONS.includes(tensionData.direction)
+        ? tensionData.direction
+        : 'stable';
+    const type = VALID_TENSION_TYPES.includes(tensionData.type)
+        ? tensionData.type
+        : 'conversation';
     // Validate recent events
-    let recentEvents = Array.isArray(data.recentEvents) ? data.recentEvents : [];
-    recentEvents = recentEvents
-        .filter((e) => typeof e === 'string' && e.length > 0)
-        .slice(0, 5);
+    let recentEvents = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asStringArray)(data.recentEvents, 5).filter(e => e.length > 0);
     if (recentEvents.length === 0) {
         recentEvents = ['Scene in progress'];
     }
     return {
         topic: data.topic,
-        tone: typeof data.tone === 'string' ? data.tone : 'neutral',
+        tone: (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asString)(data.tone, 'neutral'),
         tension: { level, direction, type },
         recentEvents,
     };
@@ -38773,7 +38674,7 @@ function setupExtractionAbortHandler() {
     const context = SillyTavern.getContext();
     context.eventSource.on(context.event_types.GENERATION_STOPPED, (() => {
         if (currentAbortController) {
-            console.log('[BlazeTracker] Generation stopped, aborting extraction');
+            console.warn('[BlazeTracker] Generation stopped, aborting extraction');
             currentAbortController.abort();
             currentAbortController = null;
         }
@@ -38813,7 +38714,7 @@ async function extractState(context, messageId, previousState, abortSignal, opti
         const currentMessage = context.chat[messageId];
         const isAssistantMessage = currentMessage?.is_user === false;
         const shouldRunScene = options.forceSceneExtraction ||
-            (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.shouldExtractScene)(messageId, isAssistantMessage, isInitial);
+            (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.shouldExtractScene)(messageId, isAssistantMessage);
         // ========================================
         // STEP 0: Initialize time tracker from previous state
         // ========================================
@@ -38853,7 +38754,7 @@ async function extractState(context, messageId, previousState, abortSignal, opti
         let scene;
         if (shouldRunScene) {
             (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('scene', shouldRunScene);
-            // Scene needs at least 2 messages for tension analysis (both sides of conversation)
+            // Scene needs at least 2 messages for tension analysis
             const sceneMessages = formatMessagesForScene(context, messageId, lastXMessages, previousState);
             scene = await (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.extractScene)(isInitial, sceneMessages, characters, isInitial ? characterInfo : '', previousState?.scene ?? null, abortController.signal);
         }
@@ -38912,9 +38813,7 @@ function formatMessagesForScene(context, messageId, lastXMessages, previousState
     // But don't go earlier than lastXMessages limit
     const effectiveStart = Math.max(limitStart, Math.min(minStart, stateStart));
     const chatMessages = context.chat.slice(effectiveStart, messageId + 1);
-    return chatMessages
-        .map((msg) => `${msg.name}: ${msg.mes}`)
-        .join('\n\n');
+    return chatMessages.map(msg => `${msg.name}: ${msg.mes}`).join('\n\n');
 }
 function prepareExtractionContext(context, messageId, lastXMessages, previousState) {
     // Find where to start reading messages
@@ -38933,9 +38832,7 @@ function prepareExtractionContext(context, messageId, lastXMessages, previousSta
     const effectiveStart = Math.max(startIdx, messageId - lastXMessages);
     const chatMessages = context.chat.slice(effectiveStart, messageId + 1);
     // Format messages for prompts
-    const formattedMessages = chatMessages
-        .map((msg) => `${msg.name}: ${msg.mes}`)
-        .join('\n\n');
+    const formattedMessages = chatMessages.map(msg => `${msg.name}: ${msg.mes}`).join('\n\n');
     // Get user persona info
     const userPersona = context.powerUserSettings?.persona_description || '';
     const userInfo = userPersona
@@ -38993,25 +38890,38 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   resetTimeTracker: () => (/* binding */ resetTimeTracker),
 /* harmony export */   setTimeTrackerState: () => (/* binding */ setTimeTrackerState)
 /* harmony export */ });
-/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
-/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _utils_generator__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/generator */ "./src/utils/generator.ts");
+/* harmony import */ var _utils_json__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/json */ "./src/utils/json.ts");
 
 
 
-const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+
 // ============================================
-// Schemas & Examples (used for placeholder replacement)
+// Schemas & Examples
 // ============================================
 const DATETIME_SCHEMA = {
     type: 'object',
     properties: {
-        year: { type: 'number', description: 'Four digit year, e.g. 2024. Infer from context or use a reasonable default.' },
-        month: { type: 'number', description: 'Month 1-12. Infer from seasonal context, weather, or use a reasonable default.' },
-        day: { type: 'number', description: 'Day of month 1-31. Infer if possible or use a reasonable default.' },
+        year: {
+            type: 'number',
+            description: 'Four digit year, e.g. 2024. Infer from context or use a reasonable default.',
+        },
+        month: {
+            type: 'number',
+            description: 'Month 1-12. Infer from seasonal context, weather, or use a reasonable default.',
+        },
+        day: {
+            type: 'number',
+            description: 'Day of month 1-31. Infer if possible or use a reasonable default.',
+        },
         hour: { type: 'number', description: 'Hour 0-23 in 24-hour format.' },
         minute: { type: 'number', description: 'Minute 0-59.' },
-        second: { type: 'number', description: 'Second 0-59. Usually 0 unless specifically mentioned.' },
+        second: {
+            type: 'number',
+            description: 'Second 0-59. Usually 0 unless specifically mentioned.',
+        },
     },
     required: ['year', 'month', 'day', 'hour', 'minute', 'second'],
 };
@@ -39028,7 +38938,10 @@ const DELTA_SCHEMA = {
     properties: {
         hours: { type: 'number', description: 'Hours passed. 0 if less than an hour.' },
         minutes: { type: 'number', description: 'Minutes passed (0-59). Added to hours.' },
-        seconds: { type: 'number', description: 'Seconds passed (0-59). Usually 0 unless specifically mentioned.' },
+        seconds: {
+            type: 'number',
+            description: 'Seconds passed (0-59). Usually 0 unless specifically mentioned.',
+        },
     },
     required: ['hours', 'minutes', 'seconds'],
 };
@@ -39037,6 +38950,13 @@ const DELTA_EXAMPLE = JSON.stringify({
     minutes: 2,
     seconds: 30,
 }, null, 2);
+// ============================================
+// Constants
+// ============================================
+const SYSTEM_PROMPT = 'You are a time analysis agent. Return only valid JSON.';
+const DATETIME_TEMPERATURE = 0.3;
+const DELTA_TEMPERATURE = 0.3;
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 // ============================================
 // Time Tracker State (module-level singleton)
 // ============================================
@@ -39052,9 +38972,8 @@ const timeTracker = {
  * Extract time for a message. Handles both initial datetime extraction
  * and delta extraction based on whether there's previous state.
  */
-async function extractTime(hasPreviousState, messages, // Add: formatted message window, same as main extraction
-abortSignal) {
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+async function extractTime(hasPreviousState, messages, abortSignal) {
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
     if (!hasPreviousState) {
         const extracted = await extractDateTime(messages, settings.profileId, abortSignal);
         initializeTracker(extracted);
@@ -39097,31 +39016,43 @@ function setTimeTrackerState(datetime) {
 // Internal: Extraction Functions
 // ============================================
 async function extractDateTime(message, profileId, abortSignal) {
-    const prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('time_datetime')
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+    const prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('time_datetime')
         .replace('{{messages}}', message)
         .replace('{{schema}}', JSON.stringify(DATETIME_SCHEMA, null, 2))
         .replace('{{schemaExample}}', DATETIME_EXAMPLE);
-    const messages = [
-        { role: 'system', content: 'You are a time analysis agent. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-    ];
-    const response = await makeGeneratorRequest(messages, profileId, 100, abortSignal);
-    const parsed = parseJsonResponse(response);
+    const llmMessages = (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.buildExtractionMessages)(SYSTEM_PROMPT, prompt);
+    const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
+        profileId,
+        maxTokens: settings.maxResponseTokens,
+        temperature: DATETIME_TEMPERATURE,
+        abortSignal,
+    });
+    const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
+        shape: 'object',
+        moduleName: 'BlazeTracker/Time',
+    });
     return validateDateTime(parsed);
 }
 async function extractTimeDelta(message, profileId, abortSignal) {
     const currentTimeStr = formatTimeForPrompt(timeTracker.currentDate);
-    const prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('time_delta')
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+    const prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('time_delta')
         .replace('{{messages}}', message)
         .replace('{{currentTime}}', currentTimeStr)
         .replace('{{schema}}', JSON.stringify(DELTA_SCHEMA, null, 2))
         .replace('{{schemaExample}}', DELTA_EXAMPLE);
-    const messages = [
-        { role: 'system', content: 'You are a time analysis agent. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-    ];
-    const response = await makeGeneratorRequest(messages, profileId, 50, abortSignal);
-    const parsed = parseJsonResponse(response);
+    const llmMessages = (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.buildExtractionMessages)(SYSTEM_PROMPT, prompt);
+    const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
+        profileId,
+        maxTokens: settings.maxResponseTokens,
+        temperature: DELTA_TEMPERATURE,
+        abortSignal,
+    });
+    const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
+        shape: 'object',
+        moduleName: 'BlazeTracker/Time',
+    });
     return validateDelta(parsed);
 }
 // ============================================
@@ -39138,9 +39069,7 @@ function applyDelta(delta, leapThresholdMinutes) {
     // Consecutive leap detection
     const isLeap = deltaSeconds > thresholdSeconds;
     const wasLeap = timeTracker.lastDeltaSeconds > thresholdSeconds;
-    const cappedSeconds = (isLeap && wasLeap)
-        ? thresholdSeconds
-        : deltaSeconds;
+    const cappedSeconds = isLeap && wasLeap ? thresholdSeconds : deltaSeconds;
     // Apply to Date object - handles all edge cases (month overflow, leap years, etc.)
     timeTracker.currentDate = new Date(timeTracker.currentDate.getTime() + cappedSeconds * 1000);
     // Store the raw delta (not capped) for next comparison
@@ -39149,9 +39078,6 @@ function applyDelta(delta, leapThresholdMinutes) {
 // ============================================
 // Internal: Conversion Utilities
 // ============================================
-const DAYS_OF_WEEK = [
-    'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
-];
 function dateToNarrative(date) {
     return {
         year: date.getFullYear(),
@@ -39170,8 +39096,18 @@ function narrativeToDate(narrative) {
 function formatTimeForPrompt(date) {
     const narrative = dateToNarrative(date);
     const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
     ];
     const hour12 = narrative.hour % 12 || 12;
     const ampm = narrative.hour < 12 ? 'AM' : 'PM';
@@ -39179,88 +39115,31 @@ function formatTimeForPrompt(date) {
     return `${narrative.dayOfWeek}, ${monthNames[narrative.month - 1]} ${narrative.day}, ${narrative.year} at ${hour12}:${minuteStr} ${ampm}`;
 }
 // ============================================
-// Internal: LLM Communication
+// Validation
 // ============================================
-function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
-    return new Promise((resolve, reject) => {
-        if (abortSignal?.aborted) {
-            return reject(new DOMException('Aborted', 'AbortError'));
-        }
-        const abortController = new AbortController();
-        if (abortSignal) {
-            abortSignal.addEventListener('abort', () => abortController.abort());
-        }
-        generator.generateRequest({
-            profileId,
-            prompt: messages,
-            maxTokens,
-            custom: { signal: abortController.signal },
-            overridePayload: {
-                temperature: 0.3,
-            }
-        }, {
-            abortController,
-            onFinish: (requestId, data, error) => {
-                if (error) {
-                    return reject(error);
-                }
-                if (!data) {
-                    return reject(new DOMException('Request aborted', 'AbortError'));
-                }
-                const content = data.content;
-                if (typeof content === 'string') {
-                    resolve(content);
-                }
-                else {
-                    resolve(JSON.stringify(content));
-                }
-            },
-        });
-    });
-}
-// ============================================
-// Internal: Response Parsing
-// ============================================
-function parseJsonResponse(response) {
-    let jsonStr = response.trim();
-    // Remove markdown code blocks if present
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-    }
-    // Try to find JSON object if there's other text
-    const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-        jsonStr = objectMatch[0];
-    }
-    try {
-        return JSON.parse(jsonStr);
-    }
-    catch (e) {
-        console.error('[BlazeTracker/Time] Failed to parse response:', e);
-        console.error('[BlazeTracker/Time] Response was:', response);
-        throw new Error('Failed to parse time extraction response as JSON');
-    }
-}
 function validateDateTime(data) {
+    if (typeof data !== 'object' || data === null) {
+        throw new Error('Invalid datetime: expected object');
+    }
+    const obj = data;
     // Parse and clamp year/month first
-    const year = typeof data.year === 'number' ? clamp(data.year, 1, 9999) : new Date().getFullYear();
-    const month = typeof data.month === 'number' ? clamp(data.month, 1, 12) : 6;
+    const year = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.year, new Date().getFullYear());
+    const month = clamp((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.month, 6), 1, 12);
     // Clamp day to valid range for this month (handles Feb 30 -> Feb 28/29, etc.)
     const maxDay = getDaysInMonth(year, month);
-    const day = typeof data.day === 'number' ? clamp(data.day, 1, maxDay) : 15;
+    const day = clamp((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.day, 15), 1, maxDay);
     const result = {
-        year,
+        year: clamp(year, 1, 9999),
         month,
         day,
-        hour: typeof data.hour === 'number' ? clamp(data.hour, 0, 23) : 12,
-        minute: typeof data.minute === 'number' ? clamp(data.minute, 0, 59) : 0,
-        second: typeof data.second === 'number' ? clamp(data.second, 0, 59) : 0,
+        hour: clamp((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.hour, 12), 0, 23),
+        minute: clamp((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.minute, 0), 0, 59),
+        second: clamp((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.second, 0), 0, 59),
         dayOfWeek: '', // Will be calculated
     };
     // Get correct day of week from Date object
-    const date = narrativeToDate(result);
-    result.dayOfWeek = DAYS_OF_WEEK[date.getDay()];
+    const dateObj = narrativeToDate(result);
+    result.dayOfWeek = DAYS_OF_WEEK[dateObj.getDay()];
     return result;
 }
 function getDaysInMonth(year, month) {
@@ -39268,10 +39147,14 @@ function getDaysInMonth(year, month) {
     return new Date(year, month, 0).getDate();
 }
 function validateDelta(data) {
+    if (typeof data !== 'object' || data === null) {
+        return { hours: 0, minutes: 0, seconds: 0 };
+    }
+    const obj = data;
     return {
-        hours: typeof data.hours === 'number' ? Math.max(0, Math.floor(data.hours)) : 0,
-        minutes: typeof data.minutes === 'number' ? clamp(Math.floor(data.minutes), 0, 59) : 0,
-        seconds: typeof data.seconds === 'number' ? clamp(Math.floor(data.seconds), 0, 59) : 0,
+        hours: Math.max(0, Math.floor((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.hours, 0))),
+        minutes: clamp(Math.floor((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.minutes, 0)), 0, 59),
+        seconds: clamp(Math.floor((0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.asNumber)(obj.seconds, 0)), 0, 59),
     };
 }
 function clamp(value, min, max) {
@@ -39303,13 +39186,7 @@ __webpack_require__.r(__webpack_exports__);
 let currentStep = 'idle';
 let progressCallback = null;
 // Steps in order (scene is optional, handled separately)
-const EXTRACTION_STEPS = [
-    'time',
-    'location',
-    'climate',
-    'characters',
-    'scene',
-];
+const EXTRACTION_STEPS = ['time', 'location', 'climate', 'characters', 'scene'];
 // ============================================
 // Public API
 // ============================================
@@ -39328,8 +39205,10 @@ function setExtractionStep(step, includeScene = true) {
         const steps = includeScene
             ? EXTRACTION_STEPS
             : EXTRACTION_STEPS.filter(s => s !== 'scene');
-        const stepIndex = step === 'idle' ? 0
-            : step === 'complete' ? steps.length
+        const stepIndex = step === 'idle'
+            ? 0
+            : step === 'complete'
+                ? steps.length
                 : steps.indexOf(step);
         progressCallback({
             step,
@@ -39349,13 +39228,20 @@ function getExtractionStep() {
  */
 function getStepLabel(step) {
     switch (step) {
-        case 'idle': return 'Ready';
-        case 'time': return 'Extracting time...';
-        case 'location': return 'Extracting location...';
-        case 'climate': return 'Extracting climate...';
-        case 'characters': return 'Extracting characters...';
-        case 'scene': return 'Extracting scene...';
-        case 'complete': return 'Complete';
+        case 'idle':
+            return 'Ready';
+        case 'time':
+            return 'Extracting time...';
+        case 'location':
+            return 'Extracting location...';
+        case 'climate':
+            return 'Extracting climate...';
+        case 'characters':
+            return 'Extracting characters...';
+        case 'scene':
+            return 'Extracting scene...';
+        case 'complete':
+            return 'Complete';
     }
 }
 
@@ -39994,8 +39880,18 @@ __webpack_require__.r(__webpack_exports__);
 
 const EXTENSION_KEY = 'blazetracker';
 const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
 ];
 function formatOutfit(outfit) {
     const outfitParts = [
@@ -40005,7 +39901,7 @@ function formatOutfit(outfit) {
         outfit.head || null,
         outfit.jacket || null,
         outfit.socks || null,
-        outfit.footwear || null
+        outfit.footwear || null,
     ];
     return outfitParts.filter((v) => v !== null).join(', ');
 }
@@ -40017,7 +39913,7 @@ function formatScene(scene) {
     const tensionParts = [
         scene.tension.type,
         scene.tension.level,
-        scene.tension.direction !== 'stable' ? scene.tension.direction : null
+        scene.tension.direction !== 'stable' ? scene.tension.direction : null,
     ].filter(Boolean);
     let text = `Topic: ${scene.topic}
 Tone: ${scene.tone}
@@ -40039,19 +39935,15 @@ function getDayOrdinal(day) {
     if (day >= 11 && day <= 13)
         return 'th';
     switch (day % 10) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
+        case 1:
+            return 'st';
+        case 2:
+            return 'nd';
+        case 3:
+            return 'rd';
+        default:
+            return 'th';
     }
-}
-function formatDateShort(time) {
-    // "Mon, Jun 15 2024, 14:30"
-    const dayShort = time.dayOfWeek.slice(0, 3);
-    const monthShort = MONTH_NAMES[time.month - 1].slice(0, 3);
-    const hourStr = String(time.hour).padStart(2, '0');
-    const minuteStr = String(time.minute).padStart(2, '0');
-    return `${dayShort}, ${monthShort} ${time.day} ${time.year}, ${hourStr}:${minuteStr}`;
 }
 function formatStateForInjection(state) {
     const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
@@ -40061,7 +39953,8 @@ function formatStateForInjection(state) {
         .join(' - ');
     const props = state.location.props.join(', ');
     const climate = state.climate ? formatClimate(state.climate) : '';
-    const characters = state.characters.map(char => {
+    const characters = state.characters
+        .map(char => {
         const parts = [`${char.name}: ${char.position}`];
         if (char.activity)
             parts.push(`doing: ${char.activity}`);
@@ -40074,13 +39967,13 @@ function formatStateForInjection(state) {
         if (char.outfit)
             parts.push(`wearing: ${formatOutfit(char.outfit)}`);
         if (char.dispositions) {
-            const dispParts = Object.entries(char.dispositions)
-                .map(([name, feelings]) => `${name}: ${feelings.join(', ')}`);
+            const dispParts = Object.entries(char.dispositions).map(([name, feelings]) => `${name}: ${feelings.join(', ')}`);
             if (dispParts.length)
                 parts.push(`feelings: ${dispParts.join('; ')}`);
         }
         return parts.join('; ');
-    }).join('\n');
+    })
+        .join('\n');
     let output = `[Scene State]`;
     // Scene info first - it's the narrative context
     if (state.scene) {
@@ -40114,8 +40007,7 @@ function injectState(state) {
     // Position 1 = after main prompt, before chat
     // Depth 0 = at the end (near most recent messages)
     context.setExtensionPrompt(EXTENSION_KEY, formatted, 1, // extension_prompt_types.IN_CHAT or similar
-    0 // depth - 0 means at the bottom
-    );
+    0);
     console.log('[BlazeTracker] Injected state into context');
 }
 function updateInjectionFromChat() {
@@ -40366,7 +40258,7 @@ __webpack_require__.r(__webpack_exports__);
 function SelectField({ id, label, description, value, options, onChange }) {
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { htmlFor: id, children: label }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: description }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { id: id, className: "text_pole", value: value, onChange: e => onChange(e.target.value), children: options.map(opt => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: opt.value, children: opt.label }, opt.value))) })] }));
 }
-function NumberField({ id, label, description, value, min, max, step, onChange }) {
+function NumberField({ id, label, description, value, min, max, step, onChange, }) {
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { htmlFor: id, children: label }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: description }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", id: id, className: "text_pole", min: min, max: max, step: step, value: value, onChange: e => onChange(parseInt(e.target.value) || min) })] }));
 }
 function CheckboxField({ id, label, description, checked, onChange }) {
@@ -40398,7 +40290,7 @@ function PromptEditor({ definition, customPrompts, onSave }) {
         setIsEditing(false);
     };
     if (isEditing) {
-        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: definition.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-description", children: definition.description })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-placeholders", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Available placeholders:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: definition.placeholders.map(p => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("li", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("code", { children: p.name }), " \u2014 ", p.description] }, p.name))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { className: "text_pole bt-prompt-textarea", value: editValue, onChange: e => setEditValue(e.target.value), rows: 15 }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleSave, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-check" }), " Save"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleReset, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-rotate-left" }), " Reset to Default"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleCancel, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-xmark" }), " Cancel"] })] })] }));
+        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: definition.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-description", children: definition.description })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-placeholders", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Available placeholders:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: definition.placeholders.map(p => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("li", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("code", { children: p.name }), " \u2014", ' ', p.description] }, p.name))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { className: "text_pole bt-prompt-textarea", value: editValue, onChange: e => setEditValue(e.target.value), rows: 15 }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleSave, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-check" }), " Save"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleReset, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-rotate-left" }), " Reset to Default"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleCancel, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-xmark" }), " Cancel"] })] })] }));
     }
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item", onClick: handleEdit, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-name", children: definition.name }), isCustomized && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-customized", title: "Custom prompt", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-pen" }) }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { className: "bt-prompt-description", children: definition.description })] }));
 }
@@ -40631,7 +40523,7 @@ function formatTime(time) {
         'September',
         'October',
         'November',
-        'December'
+        'December',
     ];
     const month = MONTH_NAMES[time.month - 1];
     // "Mon, Jan 15, 14:30"
@@ -40648,25 +40540,12 @@ function formatOutfit(outfit) {
         outfit.underwear || 'no underwear',
         outfit.head || null,
         outfit.jacket || null,
-        outfit.footwear || null
+        outfit.footwear || null,
     ];
     return outfitParts.filter((v) => v !== null).join(', ');
 }
 function getWeatherIcon(weather) {
     return WEATHER_ICONS[weather] ?? 'fa-question';
-}
-/** Wait for a message element to exist in the DOM */
-async function waitForMessageElement(messageId, maxWaitMs = 2000) {
-    const startTime = Date.now();
-    while (Date.now() - startTime < maxWaitMs) {
-        const element = document.querySelector(`[mesid="${messageId}"]`);
-        if (element && element.querySelector('.mes_text')) {
-            return element;
-        }
-        await new Promise(resolve => setTimeout(resolve, 50));
-    }
-    console.warn(`[${_constants__WEBPACK_IMPORTED_MODULE_10__.EXTENSION_NAME}] Timeout waiting for message element ${messageId}`);
-    return null;
 }
 function SceneDisplay({ scene }) {
     const { tension } = scene;
@@ -40701,7 +40580,8 @@ function StateDisplay({ stateData, isExtracting, extractionStep }) {
     const { state } = stateData;
     const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_8__.getSettings)();
     const showTime = settings.trackTime !== false;
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), " ", formatTime(state.time)] })), state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-climate", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid ${getWeatherIcon(state.climate.weather)}` }), state.climate.temperature !== undefined && ` ${(0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_11__.formatTemperature)(state.climate.temperature, settings.temperatureUnit)}`] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), " ", formatLocation(state.location)] })] }), state.scene && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SceneDisplay, { scene: state.scene }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details (", state.characters.length, " characters, ", state.location.props.length, " props)"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-props-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-props-header", children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-props", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: state.location.props.map((prop, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("li", { children: prop }, idx))) }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-characters", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(Character, { character: char }, `${char.name}-${idx}`))) })] })] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), ' ', formatTime(state.time)] })), state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-climate", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid ${getWeatherIcon(state.climate.weather)}` }), state.climate.temperature !== undefined &&
+                                ` ${(0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_11__.formatTemperature)(state.climate.temperature, settings.temperatureUnit)}`] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), ' ', formatLocation(state.location)] })] }), state.scene && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SceneDisplay, { scene: state.scene }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details (", state.characters.length, " characters,", ' ', state.location.props.length, " props)"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-props-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-props-header", children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-props", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: state.location.props.map((prop, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("li", { children: prop }, idx))) }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-characters", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(Character, { character: char }, `${char.name}-${idx}`))) })] })] }));
 }
 // --- State Extraction ---
 function getPreviousState(context, beforeMessageId) {
@@ -40783,7 +40663,9 @@ function updateMenuButtonState(messageId, isLoading) {
         btn.classList.toggle('bt-loading', isLoading);
         const icon = btn.querySelector('i');
         if (icon) {
-            icon.className = isLoading ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-fire';
+            icon.className = isLoading
+                ? 'fa-solid fa-spinner fa-spin'
+                : 'fa-solid fa-fire';
         }
     }
 }
@@ -40878,7 +40760,7 @@ function renderMessageState(messageId, stateData, isExtracting = false) {
         return;
     const currentStateData = stateData !== undefined
         ? stateData
-        : (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.getMessageState)(message) ?? null;
+        : ((0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.getMessageState)(message) ?? null);
     renderMessageStateInternal(messageId, messageElement, currentStateData, isExtracting);
 }
 /** Clear loading state (used when extraction is handled elsewhere) */
@@ -40930,7 +40812,7 @@ async function editMessageState(messageId) {
     }
     const currentStateData = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.getMessageState)(message);
     const currentState = currentStateData?.state || null;
-    const saved = await (0,_stateEditor__WEBPACK_IMPORTED_MODULE_6__.openStateEditor)(currentState, async (newState) => {
+    const _saved = await (0,_stateEditor__WEBPACK_IMPORTED_MODULE_6__.openStateEditor)(currentState, async (newState) => {
         const stateData = {
             state: newState,
             extractedAt: new Date().toISOString(),
@@ -40948,7 +40830,8 @@ function initStateDisplay() {
     (0,_extractors_extractionProgress__WEBPACK_IMPORTED_MODULE_4__.onExtractionProgress)((progress) => {
         currentExtractionStep = progress.step;
         // Re-render the extracting message to show updated step
-        if (currentExtractionMessageId !== null && extractionInProgress.has(currentExtractionMessageId)) {
+        if (currentExtractionMessageId !== null &&
+            extractionInProgress.has(currentExtractionMessageId)) {
             const messageElement = document.querySelector(`[mesid="${currentExtractionMessageId}"]`);
             if (messageElement) {
                 renderMessageStateInternal(currentExtractionMessageId, messageElement, null, true, progress.step);
@@ -41015,15 +40898,49 @@ __webpack_require__.r(__webpack_exports__);
 
 // --- Constants from Schema ---
 const WEATHER_OPTIONS = ['sunny', 'cloudy', 'snowy', 'rainy', 'windy', 'thunderstorm'];
-const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS_OF_WEEK = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+];
 const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
 ];
 const OUTFIT_SLOTS = ['head', 'jacket', 'torso', 'legs', 'underwear', 'socks', 'footwear'];
-const TENSION_LEVELS = ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'];
+const TENSION_LEVELS = [
+    'relaxed',
+    'aware',
+    'guarded',
+    'tense',
+    'charged',
+    'volatile',
+    'explosive',
+];
 const TENSION_DIRECTIONS = ['escalating', 'stable', 'decreasing'];
-const TENSION_TYPES = ['confrontation', 'intimate', 'vulnerable', 'celebratory', 'negotiation', 'suspense', 'conversation'];
+const TENSION_TYPES = [
+    'confrontation',
+    'intimate',
+    'vulnerable',
+    'celebratory',
+    'negotiation',
+    'suspense',
+    'conversation',
+];
 // --- Helper Functions ---
 function getDaysInMonth(year, month) {
     // Day 0 of next month = last day of this month
@@ -41038,7 +40955,7 @@ function createEmptyScene() {
         topic: '',
         tone: '',
         tension: { level: 'relaxed', direction: 'stable', type: 'conversation' },
-        recentEvents: []
+        recentEvents: [],
     };
 }
 function createEmptyTime() {
@@ -41144,7 +41061,7 @@ function validateState(state) {
 }
 // --- Sub-Components ---
 /** Tag input for arrays of strings (mood, physicalState, etc.) */
-function TagInput({ tags, onChange, placeholder = 'Add...' }) {
+function TagInput({ tags, onChange, placeholder = 'Add...', }) {
     const [input, setInput] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('');
     const addTag = () => {
         const trimmed = input.trim();
@@ -41171,17 +41088,18 @@ function EventListEditor({ events, onChange, }) {
     const removeEvent = (idx) => {
         onChange(events.filter((_, i) => i !== idx));
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-list", children: [events.map((event, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-item", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-event-text", children: event }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => removeEvent(idx), className: "bt-x", children: "\u00D7" })] }, idx))), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-add", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === 'Enter' && (e.preventDefault(), addEvent()), placeholder: "Add recent event..." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: addEvent, children: "+" })] }), events.length >= 5 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-event-hint", children: "Max 5 events recommended" }))] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-list", children: [events.map((event, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-item", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-event-text", children: event }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => removeEvent(idx), className: "bt-x", children: "\u00D7" })] }, idx))), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-add", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === 'Enter' &&
+                            (e.preventDefault(), addEvent()), placeholder: "Add recent event..." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: addEvent, children: "+" })] }), events.length >= 5 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-event-hint", children: "Max 5 events recommended" }))] }));
 }
 /** Outfit editor with nullable slots */
-function OutfitEditor({ outfit, onChange }) {
+function OutfitEditor({ outfit, onChange, }) {
     const update = (slot, value) => {
         onChange({ ...outfit, [slot]: value || null });
     };
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-outfit-grid", children: OUTFIT_SLOTS.map(slot => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-outfit-slot", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: slot }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-outfit-row", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: outfit[slot] || '', onChange: e => update(slot, e.target.value), placeholder: "None" }), outfit[slot] && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => update(slot, null), className: "bt-x", children: "\u00D7" }))] })] }, slot))) }));
 }
 /** Dispositions editor - dynamic key-value pairs */
-function DispositionsEditor({ dispositions, onChange, otherNames }) {
+function DispositionsEditor({ dispositions, onChange, otherNames, }) {
     const [newTarget, setNewTarget] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('');
     const addTarget = () => {
         const target = newTarget.trim();
@@ -41197,7 +41115,9 @@ function DispositionsEditor({ dispositions, onChange, otherNames }) {
         const { [target]: _, ...rest } = dispositions;
         onChange(rest);
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-dispositions", children: [Object.entries(dispositions).map(([target, feelings]) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["\u2192 ", target] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => removeTarget(target), className: "bt-x-red", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: feelings, onChange: f => updateFeelings(target, f), placeholder: "Add feeling..." })] }, target))), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-row", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", { value: newTarget, onChange: e => setNewTarget(e.target.value), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: "", children: "+ Add disposition..." }), otherNames.filter(n => !(n in dispositions)).map(n => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: n, children: n }, n)))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: newTarget, onChange: e => setNewTarget(e.target.value), placeholder: "Or type name..." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: addTarget, disabled: !newTarget.trim(), children: "Add" })] })] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-dispositions", children: [Object.entries(dispositions).map(([target, feelings]) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["\u2192 ", target] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => removeTarget(target), className: "bt-x-red", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: feelings, onChange: f => updateFeelings(target, f), placeholder: "Add feeling..." })] }, target))), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-row", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", { value: newTarget, onChange: e => setNewTarget(e.target.value), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: "", children: "+ Add disposition..." }), otherNames
+                                .filter(n => !(n in dispositions))
+                                .map(n => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: n, children: n }, n)))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: newTarget, onChange: e => setNewTarget(e.target.value), placeholder: "Or type name..." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: addTarget, disabled: !newTarget.trim(), children: "Add" })] })] }));
 }
 /** Single character editor */
 function CharacterEditor({ character, index, onChange, onRemove, otherNames, errors, }) {
@@ -41206,7 +41126,16 @@ function CharacterEditor({ character, index, onChange, onRemove, otherNames, err
     const update = (field, value) => {
         onChange({ ...character, [field]: value });
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-card", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-header", onClick: () => setExpanded(!expanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid fa-chevron-${expanded ? 'down' : 'right'}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-char-name", children: character.name || `Character ${index + 1}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: e => { e.stopPropagation(); onRemove(); }, className: "bt-x-red", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), expanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-body", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Name *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.name, onChange: e => update('name', e.target.value), className: errors[`${prefix}.name`] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Position *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { value: character.position, onChange: e => update('position', e.target.value), rows: 2, placeholder: "Physical position and orientation...", className: errors[`${prefix}.position`] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Activity" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.activity || '', onChange: e => update('activity', e.target.value), placeholder: "Current activity..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Mood" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.mood || [], onChange: t => update('mood', t), placeholder: "Add mood..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Goals" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.goals || [], onChange: t => update('goals', t), placeholder: "Add goal..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Physical State" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.physicalState || [], onChange: t => update('physicalState', t), placeholder: "Add state..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-details", open: true, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("summary", { children: "Outfit" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(OutfitEditor, { outfit: character.outfit || createEmptyCharacter().outfit, onChange: o => update('outfit', o) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Dispositions (", Object.keys(character.dispositions || {}).length, ")"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DispositionsEditor, { dispositions: character.dispositions || {}, onChange: d => update('dispositions', d), otherNames: otherNames })] })] }))] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-card", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-header", onClick: () => setExpanded(!expanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid fa-chevron-${expanded ? 'down' : 'right'}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-char-name", children: character.name || `Character ${index + 1}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: e => {
+                            e.stopPropagation();
+                            onRemove();
+                        }, className: "bt-x-red", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), expanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-body", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Name *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.name, onChange: e => update('name', e.target.value), className: errors[`${prefix}.name`]
+                                    ? 'bt-err'
+                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Position *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { value: character.position, onChange: e => update('position', e.target.value), rows: 2, placeholder: "Physical position and orientation...", className: errors[`${prefix}.position`]
+                                    ? 'bt-err'
+                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Activity" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.activity || '', onChange: e => update('activity', e.target.value), placeholder: "Current activity..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Mood" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.mood || [], onChange: t => update('mood', t), placeholder: "Add mood..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Goals" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.goals || [], onChange: t => update('goals', t), placeholder: "Add goal..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Physical State" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.physicalState || [], onChange: t => update('physicalState', t), placeholder: "Add state..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-details", open: true, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("summary", { children: "Outfit" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(OutfitEditor, { outfit: character.outfit ||
+                                    createEmptyCharacter().outfit, onChange: o => update('outfit', o) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Dispositions (", Object.keys(character.dispositions ||
+                                        {}).length, ")"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DispositionsEditor, { dispositions: character.dispositions || {}, onChange: d => update('dispositions', d), otherNames: otherNames })] })] }))] }));
 }
 // --- Main Component ---
 function StateEditor({ initialState, onSave, onCancel }) {
@@ -41219,7 +41148,7 @@ function StateEditor({ initialState, onSave, onCancel }) {
     const updateScene = (field, value) => {
         setState(s => ({
             ...s,
-            scene: { ...(s.scene || createEmptyScene()), [field]: value }
+            scene: { ...(s.scene || createEmptyScene()), [field]: value },
         }));
     };
     const updateTension = (field, value) => {
@@ -41227,8 +41156,11 @@ function StateEditor({ initialState, onSave, onCancel }) {
             ...s,
             scene: {
                 ...(s.scene || createEmptyScene()),
-                tension: { ...(s.scene?.tension || createEmptyScene().tension), [field]: value }
-            }
+                tension: {
+                    ...(s.scene?.tension || createEmptyScene().tension),
+                    [field]: value,
+                },
+            },
         }));
     };
     // Time - with automatic dayOfWeek calculation
@@ -41255,14 +41187,17 @@ function StateEditor({ initialState, onSave, onCancel }) {
     const updateClimate = (field, value) => {
         setState(s => ({
             ...s,
-            climate: { ...(s.climate || { weather: 'sunny', temperature: 70 }), [field]: value }
+            climate: {
+                ...(s.climate || { weather: 'sunny', temperature: 70 }),
+                [field]: value,
+            },
         }));
     };
     // Characters
     const updateChar = (idx, char) => {
         setState(s => ({
             ...s,
-            characters: s.characters.map((c, i) => i === idx ? char : c)
+            characters: s.characters.map((c, i) => (i === idx ? char : c)),
         }));
     };
     const addChar = () => {
@@ -41271,7 +41206,10 @@ function StateEditor({ initialState, onSave, onCancel }) {
     const removeChar = (idx) => {
         setState(s => ({ ...s, characters: s.characters.filter((_, i) => i !== idx) }));
     };
-    const getOtherNames = (excludeIdx) => state.characters.filter((_, i) => i !== excludeIdx).map(c => c.name).filter(Boolean);
+    const getOtherNames = (excludeIdx) => state.characters
+        .filter((_, i) => i !== excludeIdx)
+        .map(c => c.name)
+        .filter(Boolean);
     // Save
     const handleSave = () => {
         const errs = validateState(state);
@@ -41283,7 +41221,69 @@ function StateEditor({ initialState, onSave, onCancel }) {
     const hasErrors = Object.keys(errors).length > 0;
     // Calculate max days for current month
     const maxDaysInMonth = getDaysInMonth(state.time.year, state.time.month);
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-tabs", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'scene' ? 'active' : ''}`, onClick: () => setTab('scene'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), " Scene"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'chars' ? 'active' : ''}`, onClick: () => setTab('chars'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-users" }), " Characters (", state.characters.length, ")"] })] }), tab === 'scene' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-clapperboard" }), " Context"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Topic *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene?.topic || '', onChange: e => updateScene('topic', e.target.value), placeholder: "3-5 words: main topic of interaction", className: errors['scene.topic'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tone *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene?.tone || '', onChange: e => updateScene('tone', e.target.value), placeholder: "2-3 words: emotional tone", className: errors['scene.tone'] ? 'bt-err' : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tension Type" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension?.type || 'conversation', onChange: e => updateTension('type', e.target.value), children: TENSION_TYPES.map(t => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: t, children: t }, t))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tension Level" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension?.level || 'relaxed', onChange: e => updateTension('level', e.target.value), children: TENSION_LEVELS.map(l => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: l, children: l }, l))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Direction" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension?.direction || 'stable', onChange: e => updateTension('direction', e.target.value), children: TENSION_DIRECTIONS.map(d => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: d, children: d }, d))) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Recent Events" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(EventListEditor, { events: state.scene?.recentEvents || [], onChange: events => updateScene('recentEvents', events) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-calendar-clock" }), " Date & Time"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Year" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: 9999, value: state.time.year, onChange: e => updateTime('year', parseInt(e.target.value) || 2024), className: errors['time.year'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Month" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.time.month, onChange: e => updateTime('month', parseInt(e.target.value)), className: errors['time.month'] ? 'bt-err' : '', children: MONTH_NAMES.map((m, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: idx + 1, children: m }, m))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Day" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: maxDaysInMonth, value: state.time.day, onChange: e => updateTime('day', parseInt(e.target.value) || 1), className: errors['time.day'] ? 'bt-err' : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Hour (0-23)" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 23, value: state.time.hour, onChange: e => updateTime('hour', parseInt(e.target.value) || 0), className: errors['time.hour'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Minute" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 59, value: state.time.minute, onChange: e => updateTime('minute', parseInt(e.target.value) || 0), className: errors['time.minute'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Day of Week" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.time.dayOfWeek, disabled: true, style: { opacity: 0.7, cursor: 'not-allowed' } })] })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-map-marker-alt" }), " Location"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Area *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.area, onChange: e => updateLocation('area', e.target.value), placeholder: "City, district, region...", className: errors['location.area'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Place *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.place, onChange: e => updateLocation('place', e.target.value), placeholder: "Building, establishment, room...", className: errors['location.place'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Position *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.position, onChange: e => updateLocation('position', e.target.value), placeholder: "Position within the place...", className: errors['location.position'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: state.location.props || [], onChange: t => updateLocation('props', t), placeholder: "Add props..." })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-cloud-sun" }), " Climate"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Weather" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.climate?.weather || 'sunny', onChange: e => updateClimate('weather', e.target.value), children: WEATHER_OPTIONS.map(w => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: w, children: w.charAt(0).toUpperCase() + w.slice(1) }, w))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", { children: ["Temperature (", tempUnit === 'celsius' ? '°C' : '°F', ")"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", value: (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toDisplayTemp)(state.climate?.temperature ?? 70, tempUnit), onChange: e => updateClimate('temperature', (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toStorageTemp)(parseInt(e.target.value) || 0, tempUnit)) })] })] })] })] })), tab === 'chars' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chars-list", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CharacterEditor, { character: char, index: idx, onChange: c => updateChar(idx, c), onRemove: () => removeChar(idx), otherNames: getOtherNames(idx), errors: errors }, idx))) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addChar, className: "bt-add-char", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-plus" }), " Add Character"] })] })), hasErrors && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-errors", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-exclamation-triangle" }), "Fix highlighted errors before saving."] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: onCancel, className: "bt-btn", children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: handleSave, className: "bt-btn bt-btn-primary", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-save" }), " Save"] })] })] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-tabs", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'scene' ? 'active' : ''}`, onClick: () => setTab('scene'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), " Scene"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'chars' ? 'active' : ''}`, onClick: () => setTab('chars'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-users" }), " Characters (", state.characters.length, ")"] })] }), tab === 'scene' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-clapperboard" }), ' ', "Context"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Topic *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene
+                                                    ?.topic ||
+                                                    '', onChange: e => updateScene('topic', e.target
+                                                    .value), placeholder: "3-5 words: main topic of interaction", className: errors['scene.topic']
+                                                    ? 'bt-err'
+                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tone *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene?.tone ||
+                                                    '', onChange: e => updateScene('tone', e.target
+                                                    .value), placeholder: "2-3 words: emotional tone", className: errors['scene.tone']
+                                                    ? 'bt-err'
+                                                    : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tension Type" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension
+                                                    ?.type ||
+                                                    'conversation', onChange: e => updateTension('type', e.target
+                                                    .value), children: TENSION_TYPES.map(t => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: t, children: t }, t))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tension Level" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension
+                                                    ?.level ||
+                                                    'relaxed', onChange: e => updateTension('level', e.target
+                                                    .value), children: TENSION_LEVELS.map(l => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: l, children: l }, l))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Direction" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension
+                                                    ?.direction ||
+                                                    'stable', onChange: e => updateTension('direction', e.target
+                                                    .value), children: TENSION_DIRECTIONS.map(d => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: d, children: d }, d))) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Recent Events" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(EventListEditor, { events: state.scene?.recentEvents ||
+                                            [], onChange: events => updateScene('recentEvents', events) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-calendar-clock" }), ' ', "Date & Time"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Year" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: 9999, value: state.time.year, onChange: e => updateTime('year', parseInt(e
+                                                    .target
+                                                    .value) || 2024), className: errors['time.year']
+                                                    ? 'bt-err'
+                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Month" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.time.month, onChange: e => updateTime('month', parseInt(e
+                                                    .target
+                                                    .value)), className: errors['time.month']
+                                                    ? 'bt-err'
+                                                    : '', children: MONTH_NAMES.map((m, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: idx +
+                                                        1, children: m }, m))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Day" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: maxDaysInMonth, value: state.time.day, onChange: e => updateTime('day', parseInt(e
+                                                    .target
+                                                    .value) || 1), className: errors['time.day']
+                                                    ? 'bt-err'
+                                                    : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Hour (0-23)" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 23, value: state.time.hour, onChange: e => updateTime('hour', parseInt(e
+                                                    .target
+                                                    .value) || 0), className: errors['time.hour']
+                                                    ? 'bt-err'
+                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Minute" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 59, value: state.time.minute, onChange: e => updateTime('minute', parseInt(e
+                                                    .target
+                                                    .value) || 0), className: errors['time.minute']
+                                                    ? 'bt-err'
+                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Day of Week" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.time.dayOfWeek, disabled: true, style: {
+                                                    opacity: 0.7,
+                                                    cursor: 'not-allowed',
+                                                } })] })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-map-marker-alt" }), ' ', "Location"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Area *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.area, onChange: e => updateLocation('area', e.target.value), placeholder: "City, district, region...", className: errors['location.area']
+                                            ? 'bt-err'
+                                            : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Place *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.place, onChange: e => updateLocation('place', e.target.value), placeholder: "Building, establishment, room...", className: errors['location.place']
+                                            ? 'bt-err'
+                                            : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Position *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.position, onChange: e => updateLocation('position', e.target.value), placeholder: "Position within the place...", className: errors['location.position']
+                                            ? 'bt-err'
+                                            : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: state.location.props || [], onChange: t => updateLocation('props', t), placeholder: "Add props..." })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-cloud-sun" }), ' ', "Climate"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Weather" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.climate
+                                                    ?.weather ||
+                                                    'sunny', onChange: e => updateClimate('weather', e.target
+                                                    .value), children: WEATHER_OPTIONS.map(w => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: w, children: w
+                                                        .charAt(0)
+                                                        .toUpperCase() +
+                                                        w.slice(1) }, w))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", { children: ["Temperature (", tempUnit === 'celsius'
+                                                        ? '°C'
+                                                        : '°F', ")"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", value: (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toDisplayTemp)(state.climate
+                                                    ?.temperature ??
+                                                    70, tempUnit), onChange: e => updateClimate('temperature', (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toStorageTemp)(parseInt(e
+                                                    .target
+                                                    .value) ||
+                                                    0, tempUnit)) })] })] })] })] })), tab === 'chars' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chars-list", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CharacterEditor, { character: char, index: idx, onChange: c => updateChar(idx, c), onRemove: () => removeChar(idx), otherNames: getOtherNames(idx), errors: errors }, idx))) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addChar, className: "bt-add-char", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-plus" }), " Add Character"] })] })), hasErrors && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-errors", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-exclamation-triangle" }), "Fix highlighted errors before saving."] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: onCancel, className: "bt-btn", children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: handleSave, className: "bt-btn bt-btn-primary", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-save" }), " Save"] })] })] }));
 }
 // --- Integration with SillyTavern Popup ---
 /**
@@ -41300,7 +41300,7 @@ async function openStateEditor(currentState, onSave) {
         document.head.appendChild(link);
     }
     const context = SillyTavern.getContext();
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
         // Create container
         const container = document.createElement('div');
         container.id = 'bt-editor-root';
@@ -41341,6 +41341,180 @@ async function openStateEditor(currentState, onSave) {
     });
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (StateEditor);
+
+
+/***/ },
+
+/***/ "./src/utils/generator.ts"
+/*!********************************!*\
+  !*** ./src/utils/generator.ts ***!
+  \********************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   buildExtractionMessages: () => (/* binding */ buildExtractionMessages),
+/* harmony export */   makeGeneratorRequest: () => (/* binding */ makeGeneratorRequest)
+/* harmony export */ });
+/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
+
+const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+/**
+ * Make a request to the LLM via SillyTavern's Generator.
+ * Centralized to avoid duplication across extractors.
+ */
+function makeGeneratorRequest(messages, options) {
+    const { profileId, maxTokens, temperature = 0.5, abortSignal } = options;
+    return new Promise((resolve, reject) => {
+        if (abortSignal?.aborted) {
+            return reject(new DOMException('Aborted', 'AbortError'));
+        }
+        const abortController = new AbortController();
+        if (abortSignal) {
+            abortSignal.addEventListener('abort', () => abortController.abort());
+        }
+        generator.generateRequest({
+            profileId,
+            prompt: messages,
+            maxTokens,
+            custom: { signal: abortController.signal },
+            overridePayload: {
+                temperature,
+            },
+        }, {
+            abortController,
+            onFinish: (_requestId, data, error) => {
+                if (error) {
+                    return reject(error);
+                }
+                if (!data) {
+                    return reject(new DOMException('Request aborted', 'AbortError'));
+                }
+                const content = data.content;
+                if (typeof content === 'string') {
+                    resolve(content);
+                }
+                else {
+                    resolve(JSON.stringify(content));
+                }
+            },
+        });
+    });
+}
+/**
+ * Build a standard message array for extraction prompts.
+ */
+function buildExtractionMessages(systemPrompt, userPrompt) {
+    return [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+    ];
+}
+
+
+/***/ },
+
+/***/ "./src/utils/json.ts"
+/*!***************************!*\
+  !*** ./src/utils/json.ts ***!
+  \***************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   asNumber: () => (/* binding */ asNumber),
+/* harmony export */   asString: () => (/* binding */ asString),
+/* harmony export */   asStringArray: () => (/* binding */ asStringArray),
+/* harmony export */   asStringOrNull: () => (/* binding */ asStringOrNull),
+/* harmony export */   isObject: () => (/* binding */ isObject),
+/* harmony export */   parseJsonResponse: () => (/* binding */ parseJsonResponse)
+/* harmony export */ });
+/**
+ * Parse a JSON response from an LLM, handling markdown code blocks
+ * and extracting the JSON object or array.
+ */
+function parseJsonResponse(response, options = {}) {
+    const { shape = 'auto', moduleName = 'BlazeTracker' } = options;
+    let jsonStr = response.trim();
+    // Strip markdown code blocks
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+    }
+    // Extract based on expected shape
+    if (shape === 'array') {
+        const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+            jsonStr = arrayMatch[0];
+        }
+    }
+    else if (shape === 'object') {
+        const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (objectMatch) {
+            jsonStr = objectMatch[0];
+        }
+    }
+    else {
+        // Auto: try object first, then array
+        const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+        const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+        if (objectMatch && arrayMatch) {
+            // Use whichever comes first in the string
+            jsonStr =
+                jsonStr.indexOf('{') < jsonStr.indexOf('[')
+                    ? objectMatch[0]
+                    : arrayMatch[0];
+        }
+        else if (objectMatch) {
+            jsonStr = objectMatch[0];
+        }
+        else if (arrayMatch) {
+            jsonStr = arrayMatch[0];
+        }
+    }
+    try {
+        return JSON.parse(jsonStr);
+    }
+    catch (e) {
+        console.error(`[${moduleName}] Failed to parse response:`, e);
+        console.error(`[${moduleName}] Response was:`, response);
+        throw new Error(`Failed to parse ${moduleName} response as JSON`);
+    }
+}
+/**
+ * Safely extract a string from an unknown value.
+ */
+function asString(value, fallback) {
+    return typeof value === 'string' ? value : fallback;
+}
+/**
+ * Safely extract a string or null from an unknown value.
+ */
+function asStringOrNull(value) {
+    return typeof value === 'string' ? value : null;
+}
+/**
+ * Safely extract a number from an unknown value.
+ */
+function asNumber(value, fallback) {
+    return typeof value === 'number' ? value : fallback;
+}
+/**
+ * Safely extract an array of strings from an unknown value.
+ */
+function asStringArray(value, maxItems) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    const filtered = value.filter((v) => typeof v === 'string');
+    return maxItems ? filtered.slice(0, maxItems) : filtered;
+}
+/**
+ * Check if value is a non-null object.
+ */
+function isObject(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 
 /***/ },
@@ -41390,10 +41564,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   toStorageTemp: () => (/* binding */ toStorageTemp)
 /* harmony export */ });
 function fahrenheitToCelsius(fahrenheit) {
-    return Math.round((fahrenheit - 32) * 5 / 9);
+    return Math.round(((fahrenheit - 32) * 5) / 9);
 }
 function celsiusToFahrenheit(celsius) {
-    return Math.round(celsius * 9 / 5 + 32);
+    return Math.round((celsius * 9) / 5 + 32);
 }
 /**
  * Convert from storage (Fahrenheit) to display unit
@@ -41431,7 +41605,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   calculateTensionDirection: () => (/* binding */ calculateTensionDirection)
 /* harmony export */ });
 const TENSION_LEVEL_ORDER = [
-    'relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'
+    'relaxed',
+    'aware',
+    'guarded',
+    'tense',
+    'charged',
+    'volatile',
+    'explosive',
 ];
 function calculateTensionDirection(currentLevel, previousLevel) {
     if (!previousLevel)
@@ -41664,7 +41844,7 @@ async function init() {
     // Re-render all on generation end (to catch any we missed)
     if (autoExtractResponses) {
         // This ensures the message is fully rendered and DOM is stable
-        context.eventSource.on(context.event_types.GENERATION_ENDED, (async (messageId) => {
+        context.eventSource.on(context.event_types.GENERATION_ENDED, (async (_messageId) => {
             // messageId might not be passed, get the last message
             const stContext = SillyTavern.getContext();
             const lastMessageId = stContext.chat.length - 1;
@@ -41716,7 +41896,7 @@ async function init() {
             // Event data format varies: could be number, { message }, { messageId }, { id }
             const messageId = typeof data === 'number'
                 ? data
-                : data?.message ?? data?.messageId ?? data?.id;
+                : (data?.message ?? data?.messageId ?? data?.id);
             if (typeof messageId === 'number') {
                 // Small delay to let ST update the swipe data
                 setTimeout(() => handleSwipe(messageId), 50);
@@ -41729,7 +41909,7 @@ async function init() {
         context.eventSource.on(context.event_types.SWIPE_CHANGED, (async (data) => {
             const messageId = typeof data === 'number'
                 ? data
-                : data?.message ?? data?.messageId ?? data?.id;
+                : (data?.message ?? data?.messageId ?? data?.id);
             if (typeof messageId === 'number') {
                 setTimeout(() => handleSwipe(messageId), 50);
             }
