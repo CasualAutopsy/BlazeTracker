@@ -1,7 +1,8 @@
 import type { ExtractedData } from 'sillytavern-utils-lib/types';
 import type { Message } from 'sillytavern-utils-lib';
 import { Generator } from 'sillytavern-utils-lib';
-import { getSettings } from '../ui/settings';
+import { getSettings } from '../settings';
+import { getPrompt } from './prompts';
 import type { NarrativeDateTime } from '../types/state';
 import type { LocationState } from './extractLocation';
 
@@ -44,85 +45,6 @@ const CLIMATE_EXAMPLE = JSON.stringify({
 }, null, 2);
 
 // ============================================
-// Prompts
-// ============================================
-
-const CLIMATE_INITIAL_PROMPT = `Analyze this roleplay scene and determine the current climate/weather. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine the weather and temperature for this scene.
-- Consider the narrative time and location to infer season and typical weather.
-- Look for explicit weather mentions: rain, snow, sunshine, etc.
-- Look for contextual clues: characters wearing coats, sweating, mentioning cold/heat.
-- If characters are indoors, weather should be what it is outside, but temperature should be indoor temperature.
-- Consider the hemisphere: December is winter in the northern hemisphere, summer in the southern.
-- Temperature should be in Fahrenheit.
-</instructions>
-
-<narrative_time>
-{{narrativeTime}}
-</narrative_time>
-
-<location>
-{{location}}
-</location>
-
-<character_info>
-{{characterInfo}}
-</character_info>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(CLIMATE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CLIMATE_EXAMPLE}
-</output_example>
-
-Extract the climate as valid JSON:`;
-
-const CLIMATE_UPDATE_PROMPT = `Analyze these roleplay messages and determine if the climate has changed. You must only return valid JSON with no commentary.
-
-<instructions>
-- Check if weather or temperature has changed since the previous state.
-- Weather can change: storm rolling in, rain stopping, etc.
-- Temperature can change: moving indoors/outdoors, time passing, heating/AC mentioned.
-- Consider the current narrative time when inferring temperature changes.
-- If characters moved indoors/outdoors, adjust temperature accordingly.
-- Temperature should be in Fahrenheit.
-</instructions>
-
-<narrative_time>
-{{narrativeTime}}
-</narrative_time>
-
-<current_location>
-{{location}}
-</current_location>
-
-<previous_climate>
-{{previousClimate}}
-</previous_climate>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(CLIMATE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CLIMATE_EXAMPLE}
-</output_example>
-
-Extract the current climate as valid JSON:`;
-
-// ============================================
 // Public API
 // ============================================
 
@@ -139,21 +61,26 @@ export async function extractClimate(
 
   const timeStr = formatNarrativeTime(narrativeTime);
   const locationStr = `${location.area} - ${location.place} (${location.position})`;
+  const schemaStr = JSON.stringify(CLIMATE_SCHEMA, null, 2);
 
   let prompt: string;
 
   if (isInitial) {
-    prompt = CLIMATE_INITIAL_PROMPT
+    prompt = getPrompt('climate_initial')
       .replace('{{narrativeTime}}', timeStr)
       .replace('{{location}}', locationStr)
       .replace('{{characterInfo}}', characterInfo)
-      .replace('{{messages}}', messages);
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', CLIMATE_EXAMPLE);
   } else {
-    prompt = CLIMATE_UPDATE_PROMPT
+    prompt = getPrompt('climate_update')
       .replace('{{narrativeTime}}', timeStr)
       .replace('{{location}}', locationStr)
-      .replace('{{previousClimate}}', JSON.stringify(previousClimate, null, 2))
-      .replace('{{messages}}', messages);
+      .replace('{{previousState}}', JSON.stringify(previousClimate, null, 2))
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', CLIMATE_EXAMPLE);
   }
 
   const llmMessages: Message[] = [
@@ -164,7 +91,7 @@ export async function extractClimate(
   const response = await makeGeneratorRequest(
     llmMessages,
     settings.profileId,
-    settings.maxResponseTokens,
+    50,
     abortSignal
   );
 

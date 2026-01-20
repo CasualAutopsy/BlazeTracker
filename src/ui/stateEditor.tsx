@@ -9,7 +9,7 @@ import React, { useState, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import type { TrackedState, Character, CharacterOutfit, Climate, Scene, NarrativeDateTime } from '../types/state';
 import { toDisplayTemp, toStorageTemp } from '../utils/temperatures';
-import { getSettings } from './settings';
+import { getSettings } from '../settings';
 
 // --- Constants from Schema ---
 

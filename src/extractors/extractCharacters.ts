@@ -1,7 +1,8 @@
 import type { ExtractedData } from 'sillytavern-utils-lib/types';
 import type { Message } from 'sillytavern-utils-lib';
 import { Generator } from 'sillytavern-utils-lib';
-import { getSettings } from '../ui/settings';
+import { getSettings } from '../settings';
+import { getPrompt } from './prompts';
 import type { Character, CharacterOutfit } from '../types/state';
 import type { LocationState } from './extractLocation';
 
@@ -101,104 +102,6 @@ const CHARACTERS_EXAMPLE = JSON.stringify([
 ], null, 2);
 
 // ============================================
-// Prompts
-// ============================================
-
-const CHARACTERS_INITIAL_PROMPT = `Analyze this roleplay scene and extract all character states. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Extract all characters present in the scene.
-- For each character, determine their position, activity, mood, physical state, outfit, and dispositions.
-- Make reasonable inferences where information is not explicit.
-</general>
-<outfit_rules>
-- Consider whether the character would usually wear clothes (ponies, Pokémon, animals typically don't).
-- For non-clothed species, return null for all outfit slots unless explicitly dressed.
-- Be specific: 't-shirt' not 'default top' or 'unspecified top'.
-- Include underwear/socks with reasonable assumptions for clothed characters.
-- Fur, scales, and other anatomy do NOT count as outfit items.
-</outfit_rules>
-<dispositions>
-- Only include dispositions for characters who know each other exists.
-- Feelings should be specific: 'suspicious', 'attracted', 'annoyed', not just 'positive'.
-</dispositions>
-</instructions>
-
-<character_info>
-{{userInfo}}
-
-{{characterInfo}}
-</character_info>
-
-<current_location>
-{{location}}
-</current_location>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(CHARACTERS_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CHARACTERS_EXAMPLE}
-</output_example>
-
-Extract all characters as valid JSON array:`;
-
-const CHARACTERS_UPDATE_PROMPT = `Analyze these roleplay messages and update character states. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Start from the previous state and apply changes from the messages.
-- Watch for: characters entering/exiting, position changes, mood shifts, outfit changes.
-- Remove characters who have left the scene. Add characters who have entered.
-</general>
-<outfit_tracking>
-- If clothing is removed, set that slot to null.
-- Add removed clothing to location props (handled separately, just set slot to null here).
-- Do NOT suffix with '(off)', '(removed)' - just set to null.
-- Be specific about partially removed items: 'white panties (pulled aside)'.
-- Track which foot if only one shoe/sock remains.
-</outfit_tracking>
-<position_and_mood>
-- Update positions as characters move.
-- Update moods based on dialogue, reactions, internal thoughts.
-- Update dispositions as relationships evolve.
-</position_and_mood>
-<pruning>
-- Update goals as they're achieved or abandoned.
-- Clear physical states that have resolved.
-- Keep dispositions current - remove outdated feelings, add new ones.
-</pruning>
-</instructions>
-
-<current_location>
-{{location}}
-</current_location>
-
-<previous_characters>
-{{previousCharacters}}
-</previous_characters>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(CHARACTERS_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CHARACTERS_EXAMPLE}
-</output_example>
-
-Extract updated characters as valid JSON array:`;
-
-// ============================================
 // Public API
 // ============================================
 
@@ -214,20 +117,25 @@ export async function extractCharacters(
   const settings = getSettings();
 
   const locationStr = `${location.area} - ${location.place} (${location.position})`;
+  const schemaStr = JSON.stringify(CHARACTERS_SCHEMA, null, 2);
 
   let prompt: string;
 
   if (isInitial) {
-    prompt = CHARACTERS_INITIAL_PROMPT
+    prompt = getPrompt('characters_initial')
       .replace('{{userInfo}}', userInfo)
       .replace('{{characterInfo}}', characterInfo)
       .replace('{{location}}', locationStr)
-      .replace('{{messages}}', messages);
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', CHARACTERS_EXAMPLE);
   } else {
-    prompt = CHARACTERS_UPDATE_PROMPT
+    prompt = getPrompt('characters_update')
       .replace('{{location}}', locationStr)
-      .replace('{{previousCharacters}}', JSON.stringify(previousCharacters, null, 2))
-      .replace('{{messages}}', messages);
+      .replace('{{previousState}}', JSON.stringify(previousCharacters, null, 2))
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', CHARACTERS_EXAMPLE);
   }
 
   const llmMessages: Message[] = [

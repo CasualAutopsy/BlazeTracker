@@ -2,7 +2,8 @@ import type { STContext } from '../types/st';
 import type { ExtractedData } from 'sillytavern-utils-lib/types';
 import type { Message } from 'sillytavern-utils-lib';
 import { Generator } from 'sillytavern-utils-lib';
-import { getSettings } from '../ui/settings';
+import { getSettings } from '../settings';
+import { getPrompt } from './prompts';
 
 const generator = new Generator();
 
@@ -33,7 +34,7 @@ interface TimeTrackerState {
 }
 
 // ============================================
-// Schemas
+// Schemas & Examples (used for placeholder replacement)
 // ============================================
 
 const DATETIME_SCHEMA = {
@@ -62,8 +63,8 @@ const DELTA_SCHEMA = {
   type: 'object',
   properties: {
     hours: { type: 'number', description: 'Hours passed. 0 if less than an hour.' },
-    minutes: { type: 'number', description: 'Minutes passed (0-59).' },
-    seconds: { type: 'number', description: 'Seconds passed (0-59).' },
+    minutes: { type: 'number', description: 'Minutes passed (0-59). Added to hours.' },
+    seconds: { type: 'number', description: 'Seconds passed (0-59). Usually 0 unless specifically mentioned.' },
   },
   required: ['hours', 'minutes', 'seconds'],
 };
@@ -73,75 +74,6 @@ const DELTA_EXAMPLE = JSON.stringify({
   minutes: 2,
   seconds: 30,
 }, null, 2);
-
-// ============================================
-// Prompts
-// ============================================
-
-const DATETIME_PROMPT = `Analyze this roleplay scene opening and determine the narrative date and time. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine the date and time when this scene takes place.
-- Look for explicit mentions: "Monday morning", "3pm", "June 15th", "winter evening", etc.
-- Look for contextual clues: weather, lighting, activities, meals, seasons.
-- If the year is not specified, infer from context or use a reasonable modern year.
-- If the month is not specified, infer from seasonal/weather clues or use a reasonable default.
-- If the day is not specified, use a reasonable default (e.g., 15 for mid-month).
-- Always provide complete values for all fields - never omit anything.
-- Use 24-hour format for the hour field.
-</instructions>
-
-<scene_opening>
-{{message}}
-</scene_opening>
-
-<schema>
-${JSON.stringify(DATETIME_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${DATETIME_EXAMPLE}
-</output_example>
-
-Extract the narrative date and time as valid JSON:`;
-
-const DELTA_PROMPT = `Analyze these roleplay messages and determine how much narrative time has passed. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine how much time passes WITHIN these messages based on their actual content.
-- The example output below is just showing the JSON format - do NOT copy its values.
-- Look for explicit time jumps: "an hour later", "after a few minutes", "the next morning".
-- Look for implicit time passage: travel, sleeping, waiting, activities with known durations.
-- If the messages are just dialogue or immediate action with no time skip, return small values (0-2 minutes).
-- Estimate based on what actually happens in the messages:
-  * Pure dialogue exchange: 1-2 minutes
-  * Walking somewhere nearby: 5-15 minutes
-  * Driving across town: 15-45 minutes
-  * Napping: 1-3 hours (consider currentTime)
-  * Sleeping overnight: 6-10 hours (consider currentTime)
-  * "A few minutes": 3-5 minutes
-  * "A while": 15-30 minutes
-  * "Some time": 30-60 minutes
-- Be conservative - if unsure, prefer smaller time jumps.
-</instructions>
-
-<current_time>
-{{currentTime}}
-</current_time>
-
-<messages>
-{{message}}
-</messages>
-
-<schema>
-${JSON.stringify(DELTA_SCHEMA, null, 2)}
-</schema>
-
-<output_format_example>
-${DELTA_EXAMPLE}
-</output_format_example>
-
-Based on the actual content of the messages above, extract the time delta as valid JSON:`;
 
 // ============================================
 // Time Tracker State (module-level singleton)
@@ -220,7 +152,10 @@ export async function extractDateTime(
   profileId: string,
   abortSignal?: AbortSignal
 ): Promise<NarrativeDateTime> {
-  const prompt = DATETIME_PROMPT.replace('{{message}}', message);
+  const prompt = getPrompt('time_datetime')
+    .replace('{{messages}}', message)
+    .replace('{{schema}}', JSON.stringify(DATETIME_SCHEMA, null, 2))
+    .replace('{{schemaExample}}', DATETIME_EXAMPLE);
 
   const messages: Message[] = [
     { role: 'system', content: 'You are a time analysis agent. Return only valid JSON.' },
@@ -240,9 +175,11 @@ async function extractTimeDelta(
 ): Promise<TimeDelta> {
   const currentTimeStr = formatTimeForPrompt(timeTracker.currentDate);
 
-  const prompt = DELTA_PROMPT
-    .replace('{{message}}', message)
-    .replace('{{currentTime}}', currentTimeStr);
+  const prompt = getPrompt('time_delta')
+    .replace('{{messages}}', message)
+    .replace('{{currentTime}}', currentTimeStr)
+    .replace('{{schema}}', JSON.stringify(DELTA_SCHEMA, null, 2))
+    .replace('{{schemaExample}}', DELTA_EXAMPLE);
 
   const messages: Message[] = [
     { role: 'system', content: 'You are a time analysis agent. Return only valid JSON.' },

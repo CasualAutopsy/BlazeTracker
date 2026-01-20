@@ -1,7 +1,8 @@
 import type { ExtractedData } from 'sillytavern-utils-lib/types';
 import type { Message } from 'sillytavern-utils-lib';
 import { Generator } from 'sillytavern-utils-lib';
-import { getSettings } from '../ui/settings';
+import { getSettings } from '../settings';
+import { getPrompt } from './prompts';
 
 const generator = new Generator();
 
@@ -58,71 +59,6 @@ const LOCATION_EXAMPLE = JSON.stringify({
 }, null, 2);
 
 // ============================================
-// Prompts
-// ============================================
-
-const LOCATION_INITIAL_PROMPT = `Analyze this roleplay scene and extract the current location. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine where this scene takes place.
-- The 'area' should be a town, city or region (e.g. 'Huntsville, AL', 'London, Great Britain', 'Mt. Doom, Middle Earth', 'Ponyville, Equestria')
-- The 'place' should be a building or sub-section (e.g. 'John's Warehouse', 'Fleet Street McDonalds', 'Slime-Covered Cave', 'School of Friendship')
-- The 'position' should be a location within the place (e.g. 'Manager's Office', 'The Corner Booth', 'Underground River Bed', 'Rarity's Classroom')
-- Props are nearby items that affect or could affect the scene - be specific about their state.
-- Props should be items that can be interacted with. Walls are not prompts, people are not props, windows are not props etc.
-- Examples of props: a TV (what's showing? is it off?), a bookshelf, a book, a bed, a sofa, a can of Coke, a pair of shoes etc.
-- Each prop must be one individual item.
-- If location is not explicit, infer from context clues: character descriptions, activities, mentioned objects.
-</instructions>
-
-<character_info>
-{{characterInfo}}
-</character_info>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(LOCATION_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${LOCATION_EXAMPLE}
-</output_example>
-
-Extract the location as valid JSON:`;
-
-const LOCATION_UPDATE_PROMPT = `Analyze these roleplay messages and extract any location changes. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine if the location has changed from the previous state.
-- Track any movement: characters entering new rooms, traveling, position changes within a space.
-- Update props: new items introduced, items picked up/removed, items changing state.
-- If no location change occurred, return the previous location but consider prop changes.
-- Be careful to track items that have been picked up (remove from props) or put down (add to props).
-- Prune props that are no longer relevant to the scene.
-</instructions>
-
-<previous_location>
-{{previousLocation}}
-</previous_location>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(LOCATION_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${LOCATION_EXAMPLE}
-</output_example>
-
-Extract the current location as valid JSON:`;
-
-// ============================================
 // Public API
 // ============================================
 
@@ -135,16 +71,22 @@ export async function extractLocation(
 ): Promise<LocationState> {
   const settings = getSettings();
 
+  const schemaStr = JSON.stringify(LOCATION_SCHEMA, null, 2);
+
   let prompt: string;
 
   if (isInitial) {
-    prompt = LOCATION_INITIAL_PROMPT
+    prompt = getPrompt('location_initial')
       .replace('{{characterInfo}}', characterInfo)
-      .replace('{{messages}}', messages);
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', LOCATION_EXAMPLE);
   } else {
-    prompt = LOCATION_UPDATE_PROMPT
-      .replace('{{previousLocation}}', JSON.stringify(previousLocation, null, 2))
-      .replace('{{messages}}', messages);
+    prompt = getPrompt('location_update')
+      .replace('{{previousState}}', JSON.stringify(previousLocation, null, 2))
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', LOCATION_EXAMPLE);
   }
 
   const llmMessages: Message[] = [
@@ -155,7 +97,7 @@ export async function extractLocation(
   const response = await makeGeneratorRequest(
     llmMessages,
     settings.profileId,
-    settings.maxResponseTokens,
+    200,
     abortSignal
   );
 

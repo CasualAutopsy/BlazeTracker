@@ -2,7 +2,7 @@ console.log('[BlazeTracker] Script loading...');
 
 import type { STContext } from './types/st';
 import { setupExtractionAbortHandler } from './extractors/extractState';
-import { initSettingsUI, getSettings } from './ui/settings';
+import { initSettingsUI } from './ui/settingsUI';
 import {
   initStateDisplay,
   injectStyles,
@@ -11,7 +11,7 @@ import {
   doExtractState,
   extractionInProgress
 } from './ui/stateDisplay';
-import { settingsManager } from './settings';
+import { settingsManager, getSettings } from './settings';
 import { updateInjectionFromChat } from './injectors/injectState';
 import { EXTENSION_NAME } from './constants';
 import { getMessageState } from './utils/messageState';

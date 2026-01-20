@@ -1,6 +1,10 @@
 import { ExtensionSettingsManager } from 'sillytavern-utils-lib';
 import { EXTENSION_KEY } from './constants';
 
+export interface CustomPrompts {
+  [key: string]: string;
+}
+
 export interface BlazeTrackerSettings {
   profileId: string;
   autoMode: 'none' | 'responses' | 'inputs' | 'both';
@@ -11,6 +15,7 @@ export interface BlazeTrackerSettings {
   leapThresholdMinutes: number;
   temperatureUnit: 'fahrenheit' | 'celsius';
   timeFormat: '12h' | '24h';
+  customPrompts: CustomPrompts;
 }
 
 export const defaultSettings: BlazeTrackerSettings = {
@@ -23,9 +28,24 @@ export const defaultSettings: BlazeTrackerSettings = {
   leapThresholdMinutes: 20,
   temperatureUnit: 'fahrenheit',
   timeFormat: '24h',
+  customPrompts: {},
 };
 
 export const settingsManager = new ExtensionSettingsManager<BlazeTrackerSettings>(
   EXTENSION_KEY,
   defaultSettings
 );
+
+export function getSettings(): BlazeTrackerSettings {
+  return settingsManager.getSettings();
+}
+
+export function updateSetting<K extends keyof BlazeTrackerSettings>(
+  key: K,
+  value: BlazeTrackerSettings[K]
+): void {
+  const settings = settingsManager.getSettings();
+  settings[key] = value;
+  settingsManager.saveSettings();
+  console.log(`[BlazeTracker] Setting ${key} updated`);
+}

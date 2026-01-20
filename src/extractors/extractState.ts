@@ -1,6 +1,6 @@
 import type { STContext, ChatMessage } from '../types/st';
 import type { TrackedState, NarrativeDateTime, Scene } from '../types/state';
-import { getSettings } from '../ui/settings';
+import { getSettings } from '../settings';
 import { getMessageState } from '../utils/messageState';
 
 // Import extractors

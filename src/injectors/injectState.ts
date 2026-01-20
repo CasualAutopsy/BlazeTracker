@@ -1,7 +1,7 @@
 import type { CharacterOutfit, TrackedState, Scene, NarrativeDateTime } from '../types/state';
 import type { STContext } from '../types/st';
 import { getMessageState } from '../utils/messageState';
-import { getSettings } from '../ui/settings';
+import { getSettings } from '../settings';
 import { formatTemperature } from '../utils/temperatures';
 
 const EXTENSION_KEY = 'blazetracker';

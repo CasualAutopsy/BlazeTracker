@@ -8,7 +8,7 @@ import { onExtractionProgress, getStepLabel, type ExtractionStep, type Extractio
 import { getMessageState, setMessageState } from '../utils/messageState';
 import { openStateEditor } from './stateEditor';
 import { updateInjectionFromChat } from '../injectors/injectState';
-import { getSettings } from './settings';
+import { getSettings } from '../settings';
 import { resetTimeTracker, setTimeTrackerState } from '../extractors/extractTime';
 import { EXTENSION_NAME } from '../constants';
 import { formatTemperature } from '../utils/temperatures';

@@ -37913,7 +37913,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   extractCharacters: () => (/* binding */ extractCharacters)
 /* harmony export */ });
 /* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+
 
 
 const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
@@ -38008,119 +38010,29 @@ const CHARACTERS_EXAMPLE = JSON.stringify([
     }
 ], null, 2);
 // ============================================
-// Prompts
-// ============================================
-const CHARACTERS_INITIAL_PROMPT = `Analyze this roleplay scene and extract all character states. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Extract all characters present in the scene.
-- For each character, determine their position, activity, mood, physical state, outfit, and dispositions.
-- Make reasonable inferences where information is not explicit.
-</general>
-<outfit_rules>
-- Consider whether the character would usually wear clothes (ponies, Pokémon, animals typically don't).
-- For non-clothed species, return null for all outfit slots unless explicitly dressed.
-- Be specific: 't-shirt' not 'default top' or 'unspecified top'.
-- Include underwear/socks with reasonable assumptions for clothed characters.
-- Fur, scales, and other anatomy do NOT count as outfit items.
-</outfit_rules>
-<dispositions>
-- Only include dispositions for characters who know each other exists.
-- Feelings should be specific: 'suspicious', 'attracted', 'annoyed', not just 'positive'.
-</dispositions>
-</instructions>
-
-<character_info>
-{{userInfo}}
-
-{{characterInfo}}
-</character_info>
-
-<current_location>
-{{location}}
-</current_location>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(CHARACTERS_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CHARACTERS_EXAMPLE}
-</output_example>
-
-Extract all characters as valid JSON array:`;
-const CHARACTERS_UPDATE_PROMPT = `Analyze these roleplay messages and update character states. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Start from the previous state and apply changes from the messages.
-- Watch for: characters entering/exiting, position changes, mood shifts, outfit changes.
-- Remove characters who have left the scene. Add characters who have entered.
-</general>
-<outfit_tracking>
-- If clothing is removed, set that slot to null.
-- Add removed clothing to location props (handled separately, just set slot to null here).
-- Do NOT suffix with '(off)', '(removed)' - just set to null.
-- Be specific about partially removed items: 'white panties (pulled aside)'.
-- Track which foot if only one shoe/sock remains.
-</outfit_tracking>
-<position_and_mood>
-- Update positions as characters move.
-- Update moods based on dialogue, reactions, internal thoughts.
-- Update dispositions as relationships evolve.
-</position_and_mood>
-<pruning>
-- Update goals as they're achieved or abandoned.
-- Clear physical states that have resolved.
-- Keep dispositions current - remove outdated feelings, add new ones.
-</pruning>
-</instructions>
-
-<current_location>
-{{location}}
-</current_location>
-
-<previous_characters>
-{{previousCharacters}}
-</previous_characters>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(CHARACTERS_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CHARACTERS_EXAMPLE}
-</output_example>
-
-Extract updated characters as valid JSON array:`;
-// ============================================
 // Public API
 // ============================================
 async function extractCharacters(isInitial, messages, location, userInfo, characterInfo, previousCharacters, abortSignal) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
     const locationStr = `${location.area} - ${location.place} (${location.position})`;
+    const schemaStr = JSON.stringify(CHARACTERS_SCHEMA, null, 2);
     let prompt;
     if (isInitial) {
-        prompt = CHARACTERS_INITIAL_PROMPT
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('characters_initial')
             .replace('{{userInfo}}', userInfo)
             .replace('{{characterInfo}}', characterInfo)
             .replace('{{location}}', locationStr)
-            .replace('{{messages}}', messages);
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', CHARACTERS_EXAMPLE);
     }
     else {
-        prompt = CHARACTERS_UPDATE_PROMPT
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('characters_update')
             .replace('{{location}}', locationStr)
-            .replace('{{previousCharacters}}', JSON.stringify(previousCharacters, null, 2))
-            .replace('{{messages}}', messages);
+            .replace('{{previousState}}', JSON.stringify(previousCharacters, null, 2))
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', CHARACTERS_EXAMPLE);
     }
     const llmMessages = [
         { role: 'system', content: 'You are a character state analysis agent for roleplay scenes. Return only valid JSON.' },
@@ -38274,7 +38186,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   extractClimate: () => (/* binding */ extractClimate)
 /* harmony export */ });
 /* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+
 
 
 const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
@@ -38303,108 +38217,37 @@ const CLIMATE_EXAMPLE = JSON.stringify({
     temperature: 52
 }, null, 2);
 // ============================================
-// Prompts
-// ============================================
-const CLIMATE_INITIAL_PROMPT = `Analyze this roleplay scene and determine the current climate/weather. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine the weather and temperature for this scene.
-- Consider the narrative time and location to infer season and typical weather.
-- Look for explicit weather mentions: rain, snow, sunshine, etc.
-- Look for contextual clues: characters wearing coats, sweating, mentioning cold/heat.
-- If characters are indoors, weather should be what it is outside, but temperature should be indoor temperature.
-- Consider the hemisphere: December is winter in the northern hemisphere, summer in the southern.
-- Temperature should be in Fahrenheit.
-</instructions>
-
-<narrative_time>
-{{narrativeTime}}
-</narrative_time>
-
-<location>
-{{location}}
-</location>
-
-<character_info>
-{{characterInfo}}
-</character_info>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(CLIMATE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CLIMATE_EXAMPLE}
-</output_example>
-
-Extract the climate as valid JSON:`;
-const CLIMATE_UPDATE_PROMPT = `Analyze these roleplay messages and determine if the climate has changed. You must only return valid JSON with no commentary.
-
-<instructions>
-- Check if weather or temperature has changed since the previous state.
-- Weather can change: storm rolling in, rain stopping, etc.
-- Temperature can change: moving indoors/outdoors, time passing, heating/AC mentioned.
-- Consider the current narrative time when inferring temperature changes.
-- If characters moved indoors/outdoors, adjust temperature accordingly.
-- Temperature should be in Fahrenheit.
-</instructions>
-
-<narrative_time>
-{{narrativeTime}}
-</narrative_time>
-
-<current_location>
-{{location}}
-</current_location>
-
-<previous_climate>
-{{previousClimate}}
-</previous_climate>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(CLIMATE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${CLIMATE_EXAMPLE}
-</output_example>
-
-Extract the current climate as valid JSON:`;
-// ============================================
 // Public API
 // ============================================
 async function extractClimate(isInitial, messages, narrativeTime, location, characterInfo, previousClimate, abortSignal) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
     const timeStr = formatNarrativeTime(narrativeTime);
     const locationStr = `${location.area} - ${location.place} (${location.position})`;
+    const schemaStr = JSON.stringify(CLIMATE_SCHEMA, null, 2);
     let prompt;
     if (isInitial) {
-        prompt = CLIMATE_INITIAL_PROMPT
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('climate_initial')
             .replace('{{narrativeTime}}', timeStr)
             .replace('{{location}}', locationStr)
             .replace('{{characterInfo}}', characterInfo)
-            .replace('{{messages}}', messages);
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', CLIMATE_EXAMPLE);
     }
     else {
-        prompt = CLIMATE_UPDATE_PROMPT
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('climate_update')
             .replace('{{narrativeTime}}', timeStr)
             .replace('{{location}}', locationStr)
-            .replace('{{previousClimate}}', JSON.stringify(previousClimate, null, 2))
-            .replace('{{messages}}', messages);
+            .replace('{{previousState}}', JSON.stringify(previousClimate, null, 2))
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', CLIMATE_EXAMPLE);
     }
     const llmMessages = [
         { role: 'system', content: 'You are a climate analysis agent for roleplay scenes. Return only valid JSON.' },
         { role: 'user', content: prompt }
     ];
-    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
+    const response = await makeGeneratorRequest(llmMessages, settings.profileId, 50, abortSignal);
     return validateClimate(parseJsonResponse(response));
 }
 // ============================================
@@ -38506,7 +38349,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   extractLocation: () => (/* binding */ extractLocation)
 /* harmony export */ });
 /* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+
 
 
 const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
@@ -38549,88 +38394,31 @@ const LOCATION_EXAMPLE = JSON.stringify({
     props: ['Jukebox playing soft rock', 'Empty beer glasses', 'Bowl of peanuts', 'Flickering neon sign']
 }, null, 2);
 // ============================================
-// Prompts
-// ============================================
-const LOCATION_INITIAL_PROMPT = `Analyze this roleplay scene and extract the current location. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine where this scene takes place.
-- The 'area' should be a town, city or region (e.g. 'Huntsville, AL', 'London, Great Britain', 'Mt. Doom, Middle Earth', 'Ponyville, Equestria')
-- The 'place' should be a building or sub-section (e.g. 'John's Warehouse', 'Fleet Street McDonalds', 'Slime-Covered Cave', 'School of Friendship')
-- The 'position' should be a location within the place (e.g. 'Manager's Office', 'The Corner Booth', 'Underground River Bed', 'Rarity's Classroom')
-- Props are nearby items that affect or could affect the scene - be specific about their state.
-- Props should be items that can be interacted with. Walls are not prompts, people are not props, windows are not props etc.
-- Examples of props: a TV (what's showing? is it off?), a bookshelf, a book, a bed, a sofa, a can of Coke, a pair of shoes etc.
-- Each prop must be one individual item.
-- If location is not explicit, infer from context clues: character descriptions, activities, mentioned objects.
-</instructions>
-
-<character_info>
-{{characterInfo}}
-</character_info>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(LOCATION_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${LOCATION_EXAMPLE}
-</output_example>
-
-Extract the location as valid JSON:`;
-const LOCATION_UPDATE_PROMPT = `Analyze these roleplay messages and extract any location changes. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine if the location has changed from the previous state.
-- Track any movement: characters entering new rooms, traveling, position changes within a space.
-- Update props: new items introduced, items picked up/removed, items changing state.
-- If no location change occurred, return the previous location but consider prop changes.
-- Be careful to track items that have been picked up (remove from props) or put down (add to props).
-- Prune props that are no longer relevant to the scene.
-</instructions>
-
-<previous_location>
-{{previousLocation}}
-</previous_location>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(LOCATION_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${LOCATION_EXAMPLE}
-</output_example>
-
-Extract the current location as valid JSON:`;
-// ============================================
 // Public API
 // ============================================
 async function extractLocation(isInitial, messages, characterInfo, previousLocation, abortSignal) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const schemaStr = JSON.stringify(LOCATION_SCHEMA, null, 2);
     let prompt;
     if (isInitial) {
-        prompt = LOCATION_INITIAL_PROMPT
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('location_initial')
             .replace('{{characterInfo}}', characterInfo)
-            .replace('{{messages}}', messages);
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', LOCATION_EXAMPLE);
     }
     else {
-        prompt = LOCATION_UPDATE_PROMPT
-            .replace('{{previousLocation}}', JSON.stringify(previousLocation, null, 2))
-            .replace('{{messages}}', messages);
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('location_update')
+            .replace('{{previousState}}', JSON.stringify(previousLocation, null, 2))
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', LOCATION_EXAMPLE);
     }
     const llmMessages = [
         { role: 'system', content: 'You are a location analysis agent for roleplay scenes. Return only valid JSON.' },
         { role: 'user', content: prompt }
     ];
-    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
+    const response = await makeGeneratorRequest(llmMessages, settings.profileId, 200, abortSignal);
     return validateLocation(parseJsonResponse(response));
 }
 // ============================================
@@ -38723,8 +38511,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   shouldExtractScene: () => (/* binding */ shouldExtractScene)
 /* harmony export */ });
 /* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
-/* harmony import */ var _utils_tension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/tension */ "./src/utils/tension.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+/* harmony import */ var _utils_tension__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/tension */ "./src/utils/tension.ts");
+
 
 
 
@@ -38752,8 +38542,7 @@ const SCENE_SCHEMA = {
             properties: {
                 level: {
                     type: 'string',
-                    enum: ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'],
-                    description: 'The level of tension in the current scene. This should not remain the same for too long.'
+                    enum: ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive']
                 },
                 direction: {
                     type: 'string',
@@ -38794,134 +38583,40 @@ const SCENE_EXAMPLE = JSON.stringify({
     ]
 }, null, 2);
 // ============================================
-// Prompts
-// ============================================
-const SCENE_INITIAL_PROMPT = `Analyze this roleplay scene and extract the scene state. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Determine the topic, tone, tension, and significant events of the scene.
-- Topic should be 3-5 words summarizing the main focus.
-- Tone should be 2-3 words capturing the emotional atmosphere.
-</general>
-<tension>
-- Level indicates how charged the scene is emotionally/dramatically. It can go up as well as down.
-- Type categorizes what kind of tension: confrontation, intimate, negotiation, etc.
-- Direction will be calculated automatically, but set your best guess.
-- Make sure to update this when necessary.
-- Scenes should not remain the same tension level for too long.
-<levels>
-- relaxed means that there is very little tension in the scene, it is cozy, like post-coital cuddles or relaxing and watching TV
-- aware means that there is some tension, in an intimate scene this could be some glancing, in a confrontation, minor disagreement
-- guarded means that there is a little more tension, in an intimate scene this could be playful teasing, in a vulnerable scene it could be internal tension like characters wondering what to say and what not to say
-- tense means that the scene is approaching a breaking point, it will either escalate into something higher or de-escalate, it shouldn't stay at this level for long
-- charged means that the tension is obvious, in an intimate scene this could lead to kisses or sex, in a celebratory scene, a big reveal or someone overdoing it at the bar
-- volatile means that the tension is about to go over the edge, in a confrontation this could be a fight, in an intimate scene this is leading to something big
-- explosive is the highest level of tension, a fight, the moment before sex, just before a major decision, then it will almost always de-escalate
-</levels>
-</tension>
-<recent_events>
-- Include significant events that affect the ongoing narrative.
-- Events should be consequential: discoveries, relationship changes, injuries, commitments.
-- Maximum 5 events, prioritize the most important ones.
-</recent_events>
-</instructions>
-
-<character_info>
-{{characterInfo}}
-</character_info>
-
-<characters_present>
-{{charactersSummary}}
-</characters_present>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(SCENE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${SCENE_EXAMPLE}
-</output_example>
-
-Extract the scene state as valid JSON:`;
-const SCENE_UPDATE_PROMPT = `Analyze these roleplay messages and update the scene state. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Update topic if the focus has shifted.
-- Update tone if the emotional atmosphere has changed.
-- Consider whether tension has increased, decreased, or remained stable.
-</general>
-<tension>
-- Adjust level based on what happened in the messages.
-- Type may change: a negotiation could become a confrontation.
-- Level should be recalculated, the previous_scene should not be assumed to be right.
-- Direction will be recalculated based on level change.
-</tension>
-<recent_events>
-- Keep events that are still relevant to the ongoing scene.
-- Remove events that have been resolved or superseded.
-- Add new significant events from the recent messages.
-- Maximum 5 events - prune aggressively, keep most salient.
-- Even if previous_scene has more than 5 events, return at most 5.
-</recent_events>
-</instructions>
-
-<characters_present>
-{{charactersSummary}}
-</characters_present>
-
-<previous_scene>
-{{previousScene}}
-</previous_scene>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(SCENE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${SCENE_EXAMPLE}
-</output_example>
-
-Extract the updated scene state as valid JSON:`;
-// ============================================
 // Public API
 // ============================================
 async function extractScene(isInitial, messages, characters, characterInfo, previousScene, abortSignal) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
     // Create a brief summary of characters for context
     const charactersSummary = characters
         .map(c => `${c.name}: ${c.mood.join(', ')} - ${c.activity || c.position}`)
         .join('\n');
+    const schemaStr = JSON.stringify(SCENE_SCHEMA, null, 2);
     let prompt;
     if (isInitial) {
-        prompt = SCENE_INITIAL_PROMPT
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('scene_initial')
             .replace('{{characterInfo}}', characterInfo)
             .replace('{{charactersSummary}}', charactersSummary)
-            .replace('{{messages}}', messages);
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', SCENE_EXAMPLE);
     }
     else {
-        prompt = SCENE_UPDATE_PROMPT
+        prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('scene_update')
             .replace('{{charactersSummary}}', charactersSummary)
-            .replace('{{previousScene}}', JSON.stringify(previousScene, null, 2))
-            .replace('{{messages}}', messages);
+            .replace('{{previousState}}', JSON.stringify(previousScene, null, 2))
+            .replace('{{messages}}', messages)
+            .replace('{{schema}}', schemaStr)
+            .replace('{{schemaExample}}', SCENE_EXAMPLE);
     }
     const llmMessages = [
         { role: 'system', content: 'You are a scene analysis agent for roleplay. Return only valid JSON.' },
         { role: 'user', content: prompt }
     ];
-    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
+    const response = await makeGeneratorRequest(llmMessages, settings.profileId, 200, abortSignal);
     const scene = validateScene(parseJsonResponse(response));
     // Recalculate tension direction based on previous state
-    scene.tension.direction = (0,_utils_tension__WEBPACK_IMPORTED_MODULE_2__.calculateTensionDirection)(scene.tension.level, previousScene?.tension?.level);
+    scene.tension.direction = (0,_utils_tension__WEBPACK_IMPORTED_MODULE_3__.calculateTensionDirection)(scene.tension.level, previousScene?.tension?.level);
     return scene;
 }
 /**
@@ -39037,7 +38732,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   extractState: () => (/* binding */ extractState),
 /* harmony export */   setupExtractionAbortHandler: () => (/* binding */ setupExtractionAbortHandler)
 /* harmony export */ });
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
 /* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
 /* harmony import */ var _extractTime__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./extractTime */ "./src/extractors/extractTime.ts");
 /* harmony import */ var _extractLocation__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./extractLocation */ "./src/extractors/extractLocation.ts");
@@ -39094,7 +38789,7 @@ function abortCurrentExtraction() {
 // Main Extraction Orchestrator
 // ============================================
 async function extractState(context, messageId, previousState, abortSignal, options = {}) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
     if (!settings.profileId) {
         throw new Error('No connection profile selected. Please configure BlazeTracker in extension settings.');
     }
@@ -39299,12 +38994,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   setTimeTrackerState: () => (/* binding */ setTimeTrackerState)
 /* harmony export */ });
 /* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prompts */ "./src/extractors/prompts.ts");
+
 
 
 const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
 // ============================================
-// Schemas
+// Schemas & Examples (used for placeholder replacement)
 // ============================================
 const DATETIME_SCHEMA = {
     type: 'object',
@@ -39330,8 +39027,8 @@ const DELTA_SCHEMA = {
     type: 'object',
     properties: {
         hours: { type: 'number', description: 'Hours passed. 0 if less than an hour.' },
-        minutes: { type: 'number', description: 'Minutes passed (0-59).' },
-        seconds: { type: 'number', description: 'Seconds passed (0-59).' },
+        minutes: { type: 'number', description: 'Minutes passed (0-59). Added to hours.' },
+        seconds: { type: 'number', description: 'Seconds passed (0-59). Usually 0 unless specifically mentioned.' },
     },
     required: ['hours', 'minutes', 'seconds'],
 };
@@ -39340,72 +39037,6 @@ const DELTA_EXAMPLE = JSON.stringify({
     minutes: 2,
     seconds: 30,
 }, null, 2);
-// ============================================
-// Prompts
-// ============================================
-const DATETIME_PROMPT = `Analyze this roleplay scene opening and determine the narrative date and time. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine the date and time when this scene takes place.
-- Look for explicit mentions: "Monday morning", "3pm", "June 15th", "winter evening", etc.
-- Look for contextual clues: weather, lighting, activities, meals, seasons.
-- If the year is not specified, infer from context or use a reasonable modern year.
-- If the month is not specified, infer from seasonal/weather clues or use a reasonable default.
-- If the day is not specified, use a reasonable default (e.g., 15 for mid-month).
-- Always provide complete values for all fields - never omit anything.
-- Use 24-hour format for the hour field.
-</instructions>
-
-<scene_opening>
-{{message}}
-</scene_opening>
-
-<schema>
-${JSON.stringify(DATETIME_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${DATETIME_EXAMPLE}
-</output_example>
-
-Extract the narrative date and time as valid JSON:`;
-const DELTA_PROMPT = `Analyze these roleplay messages and determine how much narrative time has passed. You must only return valid JSON with no commentary.
-
-<instructions>
-- Determine how much time passes WITHIN these messages based on their actual content.
-- The example output below is just showing the JSON format - do NOT copy its values.
-- Look for explicit time jumps: "an hour later", "after a few minutes", "the next morning".
-- Look for implicit time passage: travel, sleeping, waiting, activities with known durations.
-- If the messages are just dialogue or immediate action with no time skip, return small values (0-2 minutes).
-- Estimate based on what actually happens in the messages:
-  * Pure dialogue exchange: 1-2 minutes
-  * Walking somewhere nearby: 5-15 minutes
-  * Driving across town: 15-45 minutes
-  * Napping: 1-3 hours (consider currentTime)
-  * Sleeping overnight: 6-10 hours (consider currentTime)
-  * "A few minutes": 3-5 minutes
-  * "A while": 15-30 minutes
-  * "Some time": 30-60 minutes
-- Be conservative - if unsure, prefer smaller time jumps.
-</instructions>
-
-<current_time>
-{{currentTime}}
-</current_time>
-
-<messages>
-{{message}}
-</messages>
-
-<schema>
-${JSON.stringify(DELTA_SCHEMA, null, 2)}
-</schema>
-
-<output_format_example>
-${DELTA_EXAMPLE}
-</output_format_example>
-
-Based on the actual content of the messages above, extract the time delta as valid JSON:`;
 // ============================================
 // Time Tracker State (module-level singleton)
 // ============================================
@@ -39423,7 +39054,7 @@ const timeTracker = {
  */
 async function extractTime(hasPreviousState, messages, // Add: formatted message window, same as main extraction
 abortSignal) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
     if (!hasPreviousState) {
         const extracted = await extractDateTime(messages, settings.profileId, abortSignal);
         initializeTracker(extracted);
@@ -39466,7 +39097,10 @@ function setTimeTrackerState(datetime) {
 // Internal: Extraction Functions
 // ============================================
 async function extractDateTime(message, profileId, abortSignal) {
-    const prompt = DATETIME_PROMPT.replace('{{message}}', message);
+    const prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('time_datetime')
+        .replace('{{messages}}', message)
+        .replace('{{schema}}', JSON.stringify(DATETIME_SCHEMA, null, 2))
+        .replace('{{schemaExample}}', DATETIME_EXAMPLE);
     const messages = [
         { role: 'system', content: 'You are a time analysis agent. Return only valid JSON.' },
         { role: 'user', content: prompt }
@@ -39477,9 +39111,11 @@ async function extractDateTime(message, profileId, abortSignal) {
 }
 async function extractTimeDelta(message, profileId, abortSignal) {
     const currentTimeStr = formatTimeForPrompt(timeTracker.currentDate);
-    const prompt = DELTA_PROMPT
-        .replace('{{message}}', message)
-        .replace('{{currentTime}}', currentTimeStr);
+    const prompt = (0,_prompts__WEBPACK_IMPORTED_MODULE_2__.getPrompt)('time_delta')
+        .replace('{{messages}}', message)
+        .replace('{{currentTime}}', currentTimeStr)
+        .replace('{{schema}}', JSON.stringify(DELTA_SCHEMA, null, 2))
+        .replace('{{schemaExample}}', DELTA_EXAMPLE);
     const messages = [
         { role: 'system', content: 'You are a time analysis agent. Return only valid JSON.' },
         { role: 'user', content: prompt }
@@ -39726,6 +39362,618 @@ function getStepLabel(step) {
 
 /***/ },
 
+/***/ "./src/extractors/prompts.ts"
+/*!***********************************!*\
+  !*** ./src/extractors/prompts.ts ***!
+  \***********************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   DEFAULT_PROMPTS: () => (/* binding */ DEFAULT_PROMPTS),
+/* harmony export */   getAllPromptDefinitions: () => (/* binding */ getAllPromptDefinitions),
+/* harmony export */   getPlaceholderDocs: () => (/* binding */ getPlaceholderDocs),
+/* harmony export */   getPrompt: () => (/* binding */ getPrompt),
+/* harmony export */   getPromptDefinition: () => (/* binding */ getPromptDefinition),
+/* harmony export */   isPromptCustomized: () => (/* binding */ isPromptCustomized)
+/* harmony export */ });
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+// ============================================
+// Prompt Configuration System
+// ============================================
+// Adjust this import path based on your project structure:
+
+// ============================================
+// Placeholder Documentation
+// ============================================
+const COMMON_PLACEHOLDERS = {
+    messages: {
+        name: '{{messages}}',
+        description: 'Recent roleplay messages formatted as "Name: message content"',
+        example: 'Elena: *She walked into the bar*\n\nMarcus: "You made it."',
+    },
+    characterInfo: {
+        name: '{{characterInfo}}',
+        description: 'Character name and description (only on initial extraction)',
+        example: 'Name: Elena\nDescription: A cunning thief with a heart of gold...',
+    },
+    userInfo: {
+        name: '{{userInfo}}',
+        description: 'User persona name and description (only on initial extraction)',
+        example: 'Name: Marcus\nDescription: A grizzled detective...',
+    },
+    previousState: {
+        name: '{{previousState}}',
+        description: 'JSON of the previous state for this extractor',
+        example: '{ "area": "Downtown", "place": "Bar", ... }',
+    },
+    schema: {
+        name: '{{schema}}',
+        description: 'JSON schema defining the expected output format',
+        example: '{ "type": "object", "properties": { ... } }',
+    },
+    schemaExample: {
+        name: '{{schemaExample}}',
+        description: 'Example output matching the schema',
+        example: '{ "area": "Downtown Seattle", ... }',
+    },
+    narrativeTime: {
+        name: '{{narrativeTime}}',
+        description: 'Current narrative time as formatted string',
+        example: 'Monday, June 15, 2024 at 2:30 PM',
+    },
+    location: {
+        name: '{{location}}',
+        description: 'Current location summary',
+        example: 'Downtown Seattle - The Rusty Nail bar (Corner booth)',
+    },
+    currentTime: {
+        name: '{{currentTime}}',
+        description: 'Current narrative time for context',
+        example: 'Monday, June 15, 2024 at 2:30 PM',
+    },
+    charactersSummary: {
+        name: '{{charactersSummary}}',
+        description: 'Brief summary of characters present with moods/activities',
+        example: 'Elena: anxious, hopeful - Watching the door\nMarcus: scheming - Drinking wine',
+    },
+};
+// ============================================
+// Default Prompts
+// ============================================
+const DEFAULT_PROMPTS = {
+    time_datetime: {
+        key: 'time_datetime',
+        name: 'Time - Initial DateTime',
+        description: 'Extracts the narrative date and time from the scene opening',
+        placeholders: [
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze this roleplay scene opening and determine the narrative date and time. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine the date and time when this scene takes place.
+- Look for explicit mentions: "Monday morning", "3pm", "June 15th", "winter evening", etc.
+- Look for contextual clues: weather, lighting, activities, meals, seasons.
+- If the year is not specified, infer from context or use a reasonable modern year.
+- If the month is not specified, infer from seasonal/weather clues or use a reasonable default.
+- If the day is not specified, use a reasonable default (e.g., 15 for mid-month).
+- Always provide complete values for all fields - never omit anything.
+- Use 24-hour format for the hour field.
+</instructions>
+
+<scene_opening>
+{{messages}}
+</scene_opening>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract the narrative date and time as valid JSON:`,
+    },
+    time_delta: {
+        key: 'time_delta',
+        name: 'Time - Delta',
+        description: 'Determines how much narrative time has passed in the messages',
+        placeholders: [
+            COMMON_PLACEHOLDERS.currentTime,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze these roleplay messages and determine how much narrative time has passed. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine how much time passes WITHIN these messages based on their actual content.
+- The example output below is just showing the JSON format - do NOT copy its values.
+- Look for explicit time jumps: "an hour later", "after a few minutes", "the next morning".
+- Look for implicit time passage: travel, sleeping, waiting, activities with known durations.
+- If the messages are just dialogue or immediate action with no time skip, return small values (0-2 minutes).
+- Estimate based on what actually happens in the messages:
+  * Pure dialogue exchange: 1-2 minutes
+  * Walking somewhere nearby: 5-15 minutes
+  * Driving across town: 15-45 minutes
+  * Napping: 1-3 hours (consider currentTime)
+  * Sleeping overnight: 6-10 hours (consider currentTime)
+  * "A few minutes": 3-5 minutes
+  * "A while": 15-30 minutes
+  * "Some time": 30-60 minutes
+- Be conservative - if unsure, prefer smaller time jumps.
+- Return 0 for all fields if no time has passed.
+</instructions>
+
+<current_time>
+{{currentTime}}
+</current_time>
+
+<messages>
+{{messages}}
+</messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_format_example>
+{{schemaExample}}
+</output_format_example>
+
+Based on the actual content of the messages above, extract the time delta as valid JSON:`,
+    },
+    location_initial: {
+        key: 'location_initial',
+        name: 'Location - Initial',
+        description: 'Extracts location from the scene opening',
+        placeholders: [
+            COMMON_PLACEHOLDERS.characterInfo,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze this roleplay scene and extract the current location. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine where this scene takes place.
+- The 'area' should be a town, city or region (e.g. 'Huntsville, AL', 'London, Great Britain', 'Mt. Doom, Middle Earth', 'Ponyville, Equestria')
+- The 'place' should be a building or sub-section (e.g. 'John's Warehouse', 'Fleet Street McDonalds', 'Slime-Covered Cave', 'School of Friendship')
+- The 'position' should be a location within the place (e.g. 'Manager's Office', 'The Corner Booth', 'Underground River Bed', 'Rarity's Classroom')
+- Props are nearby items that affect or could affect the scene - be specific about their state.
+- If location is not explicit, infer from context clues: character descriptions, activities, mentioned objects.
+</instructions>
+
+<character_info>
+{{characterInfo}}
+</character_info>
+
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract the location as valid JSON:`,
+    },
+    location_update: {
+        key: 'location_update',
+        name: 'Location - Update',
+        description: 'Updates location based on recent messages',
+        placeholders: [
+            COMMON_PLACEHOLDERS.previousState,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze these roleplay messages and extract any location changes. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine if the location has changed from the previous state.
+- Track any movement: characters entering new rooms, traveling, position changes within a space.
+- Update props: new items introduced, items picked up/removed, items changing state.
+- If no location change occurred, return the previous location but consider prop changes.
+- Be careful to track items that have been picked up (remove from props) or put down (add to props).
+- Prune props that are no longer relevant to the scene.
+</instructions>
+
+<previous_location>
+{{previousState}}
+</previous_location>
+
+<recent_messages>
+{{messages}}
+</recent_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract the current location as valid JSON:`,
+    },
+    climate_initial: {
+        key: 'climate_initial',
+        name: 'Climate - Initial',
+        description: 'Extracts weather and temperature from scene opening',
+        placeholders: [
+            COMMON_PLACEHOLDERS.narrativeTime,
+            COMMON_PLACEHOLDERS.location,
+            COMMON_PLACEHOLDERS.characterInfo,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze this roleplay scene and determine the current climate/weather. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine the weather and temperature for this scene.
+- Consider the narrative time and location to infer season and typical weather.
+- Look for explicit weather mentions: rain, snow, sunshine, etc.
+- Look for contextual clues: characters wearing coats, sweating, mentioning cold/heat.
+- If characters are indoors, weather should be what it is outside, but temperature should be indoor temperature.
+- Consider the hemisphere: December is winter in the northern hemisphere, summer in the southern.
+- Temperature should be in Fahrenheit.
+</instructions>
+
+<narrative_time>
+{{narrativeTime}}
+</narrative_time>
+
+<location>
+{{location}}
+</location>
+
+<character_info>
+{{characterInfo}}
+</character_info>
+
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract the climate as valid JSON:`,
+    },
+    climate_update: {
+        key: 'climate_update',
+        name: 'Climate - Update',
+        description: 'Updates weather/temperature based on recent messages',
+        placeholders: [
+            COMMON_PLACEHOLDERS.narrativeTime,
+            COMMON_PLACEHOLDERS.location,
+            COMMON_PLACEHOLDERS.previousState,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze these roleplay messages and determine if the climate has changed. You must only return valid JSON with no commentary.
+
+<instructions>
+- Check if weather or temperature has changed since the previous state.
+- Weather can change: storm rolling in, rain stopping, etc.
+- Temperature can change: moving indoors/outdoors, time passing, heating/AC mentioned.
+- Consider the current narrative time when inferring temperature changes.
+- If characters moved indoors/outdoors, adjust temperature accordingly.
+- Temperature should be in Fahrenheit.
+</instructions>
+
+<narrative_time>
+{{narrativeTime}}
+</narrative_time>
+
+<current_location>
+{{location}}
+</current_location>
+
+<previous_climate>
+{{previousState}}
+</previous_climate>
+
+<recent_messages>
+{{messages}}
+</recent_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract the current climate as valid JSON:`,
+    },
+    characters_initial: {
+        key: 'characters_initial',
+        name: 'Characters - Initial',
+        description: 'Extracts all character states from scene opening',
+        placeholders: [
+            COMMON_PLACEHOLDERS.userInfo,
+            COMMON_PLACEHOLDERS.characterInfo,
+            COMMON_PLACEHOLDERS.location,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze this roleplay scene and extract all character states. You must only return valid JSON with no commentary.
+
+<instructions>
+<general>
+- Extract all characters present in the scene.
+- For each character, determine their position, activity, mood, physical state, outfit, and dispositions.
+- Make reasonable inferences where information is not explicit.
+</general>
+<outfit_rules>
+- Consider whether the character would usually wear clothes (ponies, Pokémon, animals typically don't).
+- For non-clothed species, return null for all outfit slots unless explicitly dressed.
+- Be specific: 't-shirt' not 'default top' or 'unspecified top'.
+- Include underwear/socks with reasonable assumptions for clothed characters.
+- Fur, scales, and other anatomy do NOT count as outfit items.
+</outfit_rules>
+<dispositions>
+- Only include dispositions for characters who know each other exists.
+- Feelings should be specific: 'suspicious', 'attracted', 'annoyed', not just 'positive'.
+</dispositions>
+</instructions>
+
+<character_info>
+{{userInfo}}
+
+{{characterInfo}}
+</character_info>
+
+<current_location>
+{{location}}
+</current_location>
+
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract all characters as valid JSON array:`,
+    },
+    characters_update: {
+        key: 'characters_update',
+        name: 'Characters - Update',
+        description: 'Updates character states based on recent messages',
+        placeholders: [
+            COMMON_PLACEHOLDERS.location,
+            COMMON_PLACEHOLDERS.previousState,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze these roleplay messages and update character states. You must only return valid JSON with no commentary.
+
+<instructions>
+<general>
+- Start from the previous state and apply changes from the messages.
+- Watch for: characters entering/exiting, position changes, mood shifts, outfit changes.
+- Remove characters who have left the scene. Add characters who have entered.
+</general>
+<outfit_tracking>
+- If clothing is removed, set that slot to null.
+- Add removed clothing to location props (handled separately, just set slot to null here).
+- Do NOT suffix with '(off)', '(removed)' - just set to null.
+- Be specific about partially removed items: 'white panties (pulled aside)'.
+- Track which foot if only one shoe/sock remains.
+</outfit_tracking>
+<position_and_mood>
+- Update positions as characters move.
+- Update moods based on dialogue, reactions, internal thoughts.
+- Update dispositions as relationships evolve.
+</position_and_mood>
+<pruning>
+- Update goals as they're achieved or abandoned.
+- Clear physical states that have resolved.
+- Keep dispositions current - remove outdated feelings, add new ones.
+</pruning>
+</instructions>
+
+<current_location>
+{{location}}
+</current_location>
+
+<previous_characters>
+{{previousState}}
+</previous_characters>
+
+<recent_messages>
+{{messages}}
+</recent_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract updated characters as valid JSON array:`,
+    },
+    scene_initial: {
+        key: 'scene_initial',
+        name: 'Scene - Initial',
+        description: 'Extracts scene topic, tone, tension, and events from opening',
+        placeholders: [
+            COMMON_PLACEHOLDERS.characterInfo,
+            COMMON_PLACEHOLDERS.charactersSummary,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze this roleplay scene and extract the scene state. You must only return valid JSON with no commentary.
+
+<instructions>
+<general>
+- Determine the topic, tone, tension, and significant events of the scene.
+- Topic should be 3-5 words summarizing the main focus.
+- Tone should be 2-3 words capturing the emotional atmosphere.
+</general>
+<tension>
+- Level indicates how charged the scene is emotionally/dramatically.
+- Type categorizes what kind of tension: confrontation, intimate, negotiation, etc.
+- Direction will be calculated automatically, but set your best guess.
+</tension>
+<recent_events>
+- Include significant events that affect the ongoing narrative.
+- Events should be consequential: discoveries, relationship changes, injuries, commitments.
+- Maximum 5 events, prioritize the most important ones.
+</recent_events>
+</instructions>
+
+<character_info>
+{{characterInfo}}
+</character_info>
+
+<characters_present>
+{{charactersSummary}}
+</characters_present>
+
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract the scene state as valid JSON:`,
+    },
+    scene_update: {
+        key: 'scene_update',
+        name: 'Scene - Update',
+        description: 'Updates scene state based on recent messages',
+        placeholders: [
+            COMMON_PLACEHOLDERS.charactersSummary,
+            COMMON_PLACEHOLDERS.previousState,
+            COMMON_PLACEHOLDERS.messages,
+            COMMON_PLACEHOLDERS.schema,
+            COMMON_PLACEHOLDERS.schemaExample,
+        ],
+        default: `Analyze these roleplay messages and update the scene state. You must only return valid JSON with no commentary.
+
+<instructions>
+<general>
+- Update topic if the focus has shifted.
+- Update tone if the emotional atmosphere has changed.
+- Consider whether tension has increased, decreased, or remained stable.
+</general>
+<tension>
+- Adjust level based on what happened in the messages.
+- Type may change: a negotiation could become a confrontation.
+- Direction will be recalculated based on level change.
+</tension>
+<recent_events>
+- Keep events that are still relevant to the ongoing scene.
+- Remove events that have been resolved or superseded.
+- Add new significant events from the recent messages.
+- Maximum 5 events - prune aggressively, keep most salient.
+- Even if previous_scene has more than 5 events, return at most 5.
+</recent_events>
+</instructions>
+
+<characters_present>
+{{charactersSummary}}
+</characters_present>
+
+<previous_scene>
+{{previousState}}
+</previous_scene>
+
+<recent_messages>
+{{messages}}
+</recent_messages>
+
+<schema>
+{{schema}}
+</schema>
+
+<output_example>
+{{schemaExample}}
+</output_example>
+
+Extract the updated scene state as valid JSON:`,
+    },
+};
+// ============================================
+// Public API
+// ============================================
+/**
+ * Get a prompt by key, using custom prompt from settings if available.
+ */
+function getPrompt(key) {
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+    const customPrompts = settings.customPrompts;
+    if (customPrompts?.[key]) {
+        return customPrompts[key];
+    }
+    return DEFAULT_PROMPTS[key].default;
+}
+/**
+ * Get all prompt definitions for UI display.
+ */
+function getAllPromptDefinitions() {
+    return Object.values(DEFAULT_PROMPTS);
+}
+/**
+ * Get a specific prompt definition.
+ */
+function getPromptDefinition(key) {
+    return DEFAULT_PROMPTS[key];
+}
+/**
+ * Check if a prompt has been customized.
+ */
+function isPromptCustomized(key) {
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+    const customPrompts = settings.customPrompts;
+    return !!customPrompts?.[key];
+}
+/**
+ * Get placeholder documentation for a prompt.
+ */
+function getPlaceholderDocs(key) {
+    return DEFAULT_PROMPTS[key].placeholders;
+}
+
+
+/***/ },
+
 /***/ "./src/injectors/injectState.ts"
 /*!**************************************!*\
   !*** ./src/injectors/injectState.ts ***!
@@ -39739,7 +39987,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   updateInjectionFromChat: () => (/* binding */ updateInjectionFromChat)
 /* harmony export */ });
 /* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
 /* harmony import */ var _utils_temperatures__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/temperatures */ "./src/utils/temperatures.ts");
 
 
@@ -39762,7 +40010,7 @@ function formatOutfit(outfit) {
     return outfitParts.filter((v) => v !== null).join(', ');
 }
 function formatClimate(climate) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
     return `${(0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_2__.formatTemperature)(climate.temperature, settings.temperatureUnit)}, ${climate.weather}`;
 }
 function formatScene(scene) {
@@ -39806,7 +40054,7 @@ function formatDateShort(time) {
     return `${dayShort}, ${monthShort} ${time.day} ${time.year}, ${hourStr}:${minuteStr}`;
 }
 function formatStateForInjection(state) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
     const showTime = settings.trackTime !== false;
     const location = [state.location.area, state.location.place, state.location.position]
         .filter(Boolean)
@@ -40047,7 +40295,9 @@ async function migrateOldTimeFormats(context, profileId) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   defaultSettings: () => (/* binding */ defaultSettings),
-/* harmony export */   settingsManager: () => (/* binding */ settingsManager)
+/* harmony export */   getSettings: () => (/* binding */ getSettings),
+/* harmony export */   settingsManager: () => (/* binding */ settingsManager),
+/* harmony export */   updateSetting: () => (/* binding */ updateSetting)
 /* harmony export */ });
 /* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constants */ "./src/constants.ts");
@@ -40063,56 +40313,184 @@ const defaultSettings = {
     leapThresholdMinutes: 20,
     temperatureUnit: 'fahrenheit',
     timeFormat: '24h',
+    customPrompts: {},
 };
 const settingsManager = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.ExtensionSettingsManager(_constants__WEBPACK_IMPORTED_MODULE_1__.EXTENSION_KEY, defaultSettings);
+function getSettings() {
+    return settingsManager.getSettings();
+}
+function updateSetting(key, value) {
+    const settings = settingsManager.getSettings();
+    settings[key] = value;
+    settingsManager.saveSettings();
+    console.log(`[BlazeTracker] Setting ${key} updated`);
+}
 
 
 /***/ },
 
-/***/ "./src/ui/settings.ts"
-/*!****************************!*\
-  !*** ./src/ui/settings.ts ***!
-  \****************************/
+/***/ "./src/ui/settings.css"
+/*!*****************************!*\
+  !*** ./src/ui/settings.css ***!
+  \*****************************/
+(module, __unused_webpack_exports, __webpack_require__) {
+
+module.exports = __webpack_require__.p + "a2a6170fe25d134791a9.css";
+
+/***/ },
+
+/***/ "./src/ui/settingsUI.tsx"
+/*!*******************************!*\
+  !*** ./src/ui/settingsUI.tsx ***!
+  \*******************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   getSettings: () => (/* binding */ getSettings),
-/* harmony export */   initSettingsUI: () => (/* binding */ initSettingsUI)
+/* harmony export */   initSettingsUI: () => (/* binding */ initSettingsUI),
+/* harmony export */   unmountSettingsUI: () => (/* binding */ unmountSettingsUI)
 /* harmony export */ });
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
-/* harmony import */ var _stateDisplay__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./stateDisplay */ "./src/ui/stateDisplay.tsx");
+/* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! react */ "./node_modules/react/index.js");
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(react__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var react_dom_client__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! react-dom/client */ "./node_modules/react-dom/client.js");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
+/* harmony import */ var _stateDisplay__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./stateDisplay */ "./src/ui/stateDisplay.tsx");
+/* harmony import */ var _extractors_prompts__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../extractors/prompts */ "./src/extractors/prompts.ts");
 
 
-// Get ST utilities from sillytavern-utils-lib
-// These components render native ST-styled UI elements
-let STConnectionProfileSelect;
-let st_echo;
-// Dynamic import since these come from ST's runtime
-async function loadSTComponents() {
-    try {
-        const components = await __webpack_require__.e(/*! import() */ "vendors-node_modules_sillytavern-utils-lib_dist_components_react_index_js").then(__webpack_require__.bind(__webpack_require__, /*! sillytavern-utils-lib/components/react */ "./node_modules/sillytavern-utils-lib/dist/components/react/index.js"));
-        STConnectionProfileSelect = components.STConnectionProfileSelect;
+
+
+
+
+function SelectField({ id, label, description, value, options, onChange }) {
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { htmlFor: id, children: label }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: description }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { id: id, className: "text_pole", value: value, onChange: e => onChange(e.target.value), children: options.map(opt => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: opt.value, children: opt.label }, opt.value))) })] }));
+}
+function NumberField({ id, label, description, value, min, max, step, onChange }) {
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { htmlFor: id, children: label }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: description }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", id: id, className: "text_pole", min: min, max: max, step: step, value: value, onChange: e => onChange(parseInt(e.target.value) || min) })] }));
+}
+function CheckboxField({ id, label, description, checked, onChange }) {
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", { className: "checkbox_label", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "checkbox", id: id, checked: checked, onChange: e => onChange(e.target.checked) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: label })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: description })] }));
+}
+function PromptEditor({ definition, customPrompts, onSave }) {
+    const [isEditing, setIsEditing] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
+    const [editValue, setEditValue] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('');
+    const isCustomized = !!customPrompts[definition.key];
+    const handleEdit = () => {
+        setEditValue(customPrompts[definition.key] || definition.default);
+        setIsEditing(true);
+    };
+    const handleSave = () => {
+        // If unchanged from default, remove customization
+        if (editValue.trim() === definition.default.trim()) {
+            onSave(definition.key, null);
+        }
+        else {
+            onSave(definition.key, editValue);
+        }
+        setIsEditing(false);
+    };
+    const handleReset = () => {
+        onSave(definition.key, null);
+        setIsEditing(false);
+    };
+    const handleCancel = () => {
+        setIsEditing(false);
+    };
+    if (isEditing) {
+        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: definition.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-description", children: definition.description })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-placeholders", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Available placeholders:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: definition.placeholders.map(p => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("li", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("code", { children: p.name }), " \u2014 ", p.description] }, p.name))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { className: "text_pole bt-prompt-textarea", value: editValue, onChange: e => setEditValue(e.target.value), rows: 15 }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleSave, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-check" }), " Save"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleReset, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-rotate-left" }), " Reset to Default"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleCancel, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-xmark" }), " Cancel"] })] })] }));
     }
-    catch (e) {
-        console.warn('[BlazeTracker] Could not load ST components:', e);
-    }
-    try {
-        const config = await Promise.resolve(/*! import() */).then(__webpack_require__.bind(__webpack_require__, /*! sillytavern-utils-lib/config */ "./node_modules/sillytavern-utils-lib/dist/config.js"));
-        st_echo = config.st_echo;
-    }
-    catch (e) {
-        console.warn('[BlazeTracker] Could not load st_echo:', e);
-    }
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item", onClick: handleEdit, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-name", children: definition.name }), isCustomized && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-customized", title: "Custom prompt", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-pen" }) }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { className: "bt-prompt-description", children: definition.description })] }));
+}
+function PromptsSection({ customPrompts, onUpdatePrompt }) {
+    const [isExpanded, setIsExpanded] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
+    const definitions = (0,_extractors_prompts__WEBPACK_IMPORTED_MODULE_5__.getAllPromptDefinitions)();
+    const customizedCount = definitions.filter(d => !!customPrompts[d.key]).length;
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-header", onClick: () => setIsExpanded(!isExpanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-title", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid fa-chevron-${isExpanded ? 'down' : 'right'}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Custom Prompts" }), customizedCount > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-prompts-count", children: ["(", customizedCount, " customized)"] }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Click to customize extraction prompts for different models" })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-prompts-list", children: definitions.map(def => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptEditor, { definition: def, customPrompts: customPrompts, onSave: onUpdatePrompt }, def.key))) }))] }));
+}
+// ============================================
+// Main Settings Panel Component
+// ============================================
+function SettingsPanel() {
+    const [settings, setSettings] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(_settings__WEBPACK_IMPORTED_MODULE_3__.getSettings);
+    const [profiles, setProfiles] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)([]);
+    // Load connection profiles
+    (0,react__WEBPACK_IMPORTED_MODULE_1__.useEffect)(() => {
+        const context = SillyTavern.getContext();
+        const connectionManager = context.extensionSettings?.connectionManager;
+        setProfiles(connectionManager?.profiles || []);
+    }, []);
+    const handleUpdate = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((key, value) => {
+        (0,_settings__WEBPACK_IMPORTED_MODULE_3__.updateSetting)(key, value);
+        setSettings(prev => ({ ...prev, [key]: value }));
+    }, []);
+    const handlePositionChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((value) => {
+        handleUpdate('displayPosition', value);
+        document.querySelectorAll('.bt-state-root').forEach(el => el.remove());
+        setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_4__.renderAllStates)(), 200);
+    }, [handleUpdate]);
+    const handleTrackTimeChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((checked) => {
+        handleUpdate('trackTime', checked);
+        setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_4__.renderAllStates)(), 100);
+    }, [handleUpdate]);
+    const handleTempUnitChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((value) => {
+        handleUpdate('temperatureUnit', value);
+        setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_4__.renderAllStates)(), 100);
+    }, [handleUpdate]);
+    const handleTimeFormatChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((value) => {
+        handleUpdate('timeFormat', value);
+        setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_4__.renderAllStates)(), 100);
+    }, [handleUpdate]);
+    const handlePromptUpdate = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((key, value) => {
+        const newCustomPrompts = { ...settings.customPrompts };
+        if (value === null) {
+            delete newCustomPrompts[key];
+        }
+        else {
+            newCustomPrompts[key] = value;
+        }
+        handleUpdate('customPrompts', newCustomPrompts);
+    }, [settings.customPrompts, handleUpdate]);
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "blazetracker-settings-content", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { htmlFor: "blazetracker-profile", children: "Connection Profile" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Select which API connection to use for state extraction" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", { id: "blazetracker-profile", className: "text_pole", value: settings.profileId, onChange: e => handleUpdate('profileId', e.target.value), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: "", children: "-- Select a profile --" }), profiles.map(profile => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: profile.id, children: profile.name || profile.id }, profile.id)))] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-automode", label: "Auto Mode", description: "When to automatically extract state", value: settings.autoMode, options: [
+                    { value: 'none', label: 'None (manual only)' },
+                    { value: 'responses', label: 'AI responses only' },
+                    { value: 'inputs', label: 'User messages only' },
+                    { value: 'both', label: 'Both' },
+                ], onChange: v => handleUpdate('autoMode', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(NumberField, { id: "blazetracker-lastx", label: "Max Messages to Include", description: "Max. number of recent messages to send for extraction context", value: settings.lastXMessages, min: 1, max: 50, step: 1, onChange: v => handleUpdate('lastXMessages', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(NumberField, { id: "blazetracker-maxtokens", label: "Max Response Tokens", description: "Maximum tokens for extraction response", value: settings.maxResponseTokens, min: 500, max: 8000, step: 100, onChange: v => handleUpdate('maxResponseTokens', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-position", label: "State Display Position", description: "Show state block above or below the message", value: settings.displayPosition, options: [
+                    { value: 'below', label: 'Below message' },
+                    { value: 'above', label: 'Above message' },
+                ], onChange: handlePositionChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckboxField, { id: "blazetracker-tracktime", label: "Enable Time Tracking", description: "Extract and track narrative date/time (requires additional LLM call per message)", checked: settings.trackTime, onChange: handleTrackTimeChange }), settings.trackTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(NumberField, { id: "blazetracker-leapthreshold", label: "Leap Threshold (minutes)", description: "Cap consecutive time jumps to prevent 'double sleep' issues", value: settings.leapThresholdMinutes, min: 5, max: 1440, step: 5, onChange: v => handleUpdate('leapThresholdMinutes', v) })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-tempunit", label: "Temperature Unit", description: "Display temperatures in Fahrenheit or Celsius", value: settings.temperatureUnit, options: [
+                    { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
+                    { value: 'celsius', label: 'Celsius (°C)' },
+                ], onChange: handleTempUnitChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-timeformat", label: "Time Format", description: "Display time in 12-hour or 24-hour format", value: settings.timeFormat, options: [
+                    { value: '24h', label: '24-hour (14:30)' },
+                    { value: '12h', label: '12-hour (2:30 PM)' },
+                ], onChange: handleTimeFormatChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptsSection, { customPrompts: settings.customPrompts, onUpdatePrompt: handlePromptUpdate })] }));
+}
+// ============================================
+// Initialization
+// ============================================
+let settingsRoot = null;
+function injectSettingsStyles() {
+    if (document.getElementById('blazetracker-settings-styles'))
+        return;
+    const link = document.createElement('link');
+    link.id = 'blazetracker-settings-styles';
+    link.rel = 'stylesheet';
+    link.href = new URL(/* asset import */ __webpack_require__(/*! ./settings.css */ "./src/ui/settings.css"), __webpack_require__.b).href;
+    document.head.appendChild(link);
 }
 async function initSettingsUI() {
-    await loadSTComponents();
     const settingsContainer = document.getElementById('extensions_settings');
     if (!settingsContainer) {
         console.error('[BlazeTracker] Extension settings container not found.');
         return;
     }
-    // Create our settings panel
+    // Inject styles
+    injectSettingsStyles();
+    // Initialize settings
+    await _settings__WEBPACK_IMPORTED_MODULE_3__.settingsManager.initializeSettings();
+    // Create wrapper with drawer structure
     const panel = document.createElement('div');
     panel.id = 'blazetracker-settings';
     panel.className = 'extension_container';
@@ -40123,229 +40501,24 @@ async function initSettingsUI() {
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">
-        <div class="blazetracker-settings-content">
-
-          <div class="flex-container flexFlowColumn">
-            <label for="blazetracker-profile">Connection Profile</label>
-            <small>Select which API connection to use for state extraction</small>
-            <div id="blazetracker-profile-container"></div>
-          </div>
-
-          <hr>
-
-          <div class="flex-container flexFlowColumn">
-            <label for="blazetracker-automode">Auto Mode</label>
-            <small>When to automatically extract state</small>
-            <select id="blazetracker-automode" class="text_pole">
-              <option value="none">None (manual only)</option>
-              <option value="responses">AI responses only</option>
-              <option value="inputs">User messages only</option>
-              <option value="both">Both</option>
-            </select>
-          </div>
-
-          <hr>
-
-          <div class="flex-container flexFlowColumn">
-            <label for="blazetracker-lastx">Max messages to Include</label>
-            <small>Max. number of recent messages to send for extraction context</small>
-            <input type="number" id="blazetracker-lastx" class="text_pole" min="1" max="50" step="1">
-          </div>
-
-          <hr>
-
-          <div class="flex-container flexFlowColumn">
-            <label for="blazetracker-maxtokens">Max Response Tokens</label>
-            <small>Maximum tokens for extraction response</small>
-            <input type="number" id="blazetracker-maxtokens" class="text_pole" min="500" max="8000" step="100">
-          </div>
-
-          <hr>
-
-          <div class="flex-container flexFlowColumn">
-            <label for="blazetracker-position">State Display Position</label>
-            <small>Show state block above or below the message</small>
-            <select id="blazetracker-position" class="text_pole">
-              <option value="below">Below message</option>
-              <option value="above">Above message</option>
-            </select>
-          </div>
-
-          <hr>
-
-          <div class="flex-container flexFlowColumn">
-            <label class="checkbox_label">
-              <input type="checkbox" id="blazetracker-tracktime">
-              <span>Enable Time Tracking</span>
-            </label>
-            <small>Extract and track narrative date/time (requires additional LLM call per message)</small>
-          </div>
-
-          <div class="flex-container flexFlowColumn" id="blazetracker-time-options">
-            <label for="blazetracker-leapthreshold">Leap Threshold (minutes)</label>
-            <small>Cap consecutive time jumps to prevent "double sleep" issues. If two messages in a row both jump more than this, the second is capped.</small>
-            <input type="number" id="blazetracker-leapthreshold" class="text_pole" min="5" max="1440" step="5">
-          </div>
-
-          <hr>
-
-          <div class="flex-container flexFlowColumn">
-            <label for="blazetracker-tempunit">Temperature Unit</label>
-            <small>Display temperatures in Fahrenheit or Celsius</small>
-            <select id="blazetracker-tempunit" class="text_pole">
-              <option value="fahrenheit">Fahrenheit (°F)</option>
-              <option value="celsius">Celsius (°C)</option>
-            </select>
-          </div>
-
-          <div class="flex-container flexFlowColumn">
-            <label for="blazetracker-timeformat">Time Format</label>
-            <small>Display time in 12-hour or 24-hour format</small>
-            <select id="blazetracker-timeformat" class="text_pole">
-              <option value="24h">24-hour (14:30)</option>
-              <option value="12h">12-hour (2:30 PM)</option>
-            </select>
-          </div>
-
-        </div>
+        <div id="blazetracker-settings-root"></div>
       </div>
     </div>
   `;
     settingsContainer.appendChild(panel);
-    // Initialize settings values
-    await _settings__WEBPACK_IMPORTED_MODULE_0__.settingsManager.initializeSettings();
-    const settings = _settings__WEBPACK_IMPORTED_MODULE_0__.settingsManager.getSettings();
-    // Set up profile selector
-    const profileContainer = panel.querySelector('#blazetracker-profile-container');
-    if (profileContainer && STConnectionProfileSelect) {
-        // STConnectionProfileSelect is a web component or needs special handling
-        // For now, create a simple select that reads from ST's connection manager
-        const context = SillyTavern.getContext();
-        const connectionManager = context.extensionSettings?.connectionManager;
-        const profiles = connectionManager?.profiles || [];
-        const select = document.createElement('select');
-        select.id = 'blazetracker-profile';
-        select.className = 'text_pole';
-        const emptyOption = document.createElement('option');
-        emptyOption.value = '';
-        emptyOption.textContent = '-- Select a profile --';
-        select.appendChild(emptyOption);
-        for (const profile of profiles) {
-            const option = document.createElement('option');
-            option.value = profile.id;
-            option.textContent = profile.name || profile.id;
-            if (profile.id === settings.profileId) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        }
-        select.addEventListener('change', () => {
-            updateSetting('profileId', select.value);
-        });
-        profileContainer.appendChild(select);
-    }
-    else {
-        // Fallback: just show a text input
-        if (profileContainer) {
-            profileContainer.innerHTML = `
-        <input type="text" id="blazetracker-profile" class="text_pole"
-               placeholder="Profile ID" value="${settings.profileId || ''}">
-        <small>Enter connection profile ID manually</small>
-      `;
-            const input = profileContainer.querySelector('#blazetracker-profile');
-            input?.addEventListener('change', () => {
-                updateSetting('profileId', input.value);
-            });
-        }
-    }
-    // Set up auto mode
-    const autoModeSelect = panel.querySelector('#blazetracker-automode');
-    if (autoModeSelect) {
-        autoModeSelect.value = settings.autoMode;
-        autoModeSelect.addEventListener('change', () => {
-            updateSetting('autoMode', autoModeSelect.value);
-        });
-    }
-    // Set up last X messages
-    const lastXInput = panel.querySelector('#blazetracker-lastx');
-    if (lastXInput) {
-        lastXInput.value = String(settings.lastXMessages);
-        lastXInput.addEventListener('change', () => {
-            updateSetting('lastXMessages', parseInt(lastXInput.value) || 10);
-        });
-    }
-    // Set up max tokens
-    const maxTokensInput = panel.querySelector('#blazetracker-maxtokens');
-    if (maxTokensInput) {
-        maxTokensInput.value = String(settings.maxResponseTokens);
-        maxTokensInput.addEventListener('change', () => {
-            updateSetting('maxResponseTokens', parseInt(maxTokensInput.value) || 2000);
-        });
-    }
-    // Set up display position
-    const positionSelect = panel.querySelector('#blazetracker-position');
-    if (positionSelect) {
-        positionSelect.value = settings.displayPosition;
-        positionSelect.addEventListener('change', () => {
-            updateSetting('displayPosition', positionSelect.value);
-            document.querySelectorAll('.bt-state-root').forEach(el => el.remove());
-            setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_1__.renderAllStates)(), 200);
-        });
-    }
-    // Set up time tracking checkbox
-    const trackTimeCheckbox = panel.querySelector('#blazetracker-tracktime');
-    const timeOptionsContainer = panel.querySelector('#blazetracker-time-options');
-    const updateTimeOptionsVisibility = () => {
-        if (timeOptionsContainer) {
-            timeOptionsContainer.style.display = trackTimeCheckbox?.checked ? 'flex' : 'none';
-        }
-    };
-    if (trackTimeCheckbox) {
-        trackTimeCheckbox.checked = settings.trackTime !== false; // Default to true
-        updateTimeOptionsVisibility();
-        trackTimeCheckbox.addEventListener('change', () => {
-            updateSetting('trackTime', trackTimeCheckbox.checked);
-            updateTimeOptionsVisibility();
-            // Re-render to show/hide time in display
-            setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_1__.renderAllStates)(), 100);
-        });
-    }
-    // Set up leap threshold
-    const leapThresholdInput = panel.querySelector('#blazetracker-leapthreshold');
-    if (leapThresholdInput) {
-        leapThresholdInput.value = String(settings.leapThresholdMinutes ?? 20);
-        leapThresholdInput.addEventListener('change', () => {
-            updateSetting('leapThresholdMinutes', parseInt(leapThresholdInput.value) || 20);
-        });
-    }
-    // Set up temperature unit
-    const tempUnitSelect = panel.querySelector('#blazetracker-tempunit');
-    if (tempUnitSelect) {
-        tempUnitSelect.value = settings.temperatureUnit ?? 'fahrenheit';
-        tempUnitSelect.addEventListener('change', () => {
-            updateSetting('temperatureUnit', tempUnitSelect.value);
-            setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_1__.renderAllStates)(), 100);
-        });
-    }
-    // Set up time format
-    const timeFormatSelect = panel.querySelector('#blazetracker-timeformat');
-    if (timeFormatSelect) {
-        timeFormatSelect.value = settings.timeFormat ?? '24h';
-        timeFormatSelect.addEventListener('change', () => {
-            updateSetting('timeFormat', timeFormatSelect.value);
-            setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_1__.renderAllStates)(), 100);
-        });
+    // Mount React component
+    const root = document.getElementById('blazetracker-settings-root');
+    if (root) {
+        settingsRoot = react_dom_client__WEBPACK_IMPORTED_MODULE_2__.createRoot(root);
+        settingsRoot.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SettingsPanel, {}));
     }
     console.log('[BlazeTracker] Settings UI initialized');
 }
-function updateSetting(key, value) {
-    const settings = _settings__WEBPACK_IMPORTED_MODULE_0__.settingsManager.getSettings();
-    settings[key] = value;
-    _settings__WEBPACK_IMPORTED_MODULE_0__.settingsManager.saveSettings();
-    console.log(`[BlazeTracker] Setting ${key} = ${value}`);
-}
-function getSettings() {
-    return _settings__WEBPACK_IMPORTED_MODULE_0__.settingsManager.getSettings();
+function unmountSettingsUI() {
+    if (settingsRoot) {
+        settingsRoot.unmount();
+        settingsRoot = null;
+    }
 }
 
 
@@ -40386,7 +40559,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
 /* harmony import */ var _stateEditor__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./stateEditor */ "./src/ui/stateEditor.tsx");
 /* harmony import */ var _injectors_injectState__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../injectors/injectState */ "./src/injectors/injectState.ts");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
 /* harmony import */ var _extractors_extractTime__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../extractors/extractTime */ "./src/extractors/extractTime.ts");
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../constants */ "./src/constants.ts");
 /* harmony import */ var _utils_temperatures__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ../utils/temperatures */ "./src/utils/temperatures.ts");
@@ -40828,7 +41001,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var react__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(react__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var react_dom_client__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! react-dom/client */ "./node_modules/react-dom/client.js");
 /* harmony import */ var _utils_temperatures__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/temperatures */ "./src/utils/temperatures.ts");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./settings */ "./src/ui/settings.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../settings */ "./src/settings.ts");
 
 /**
  * BlazeTracker State Editor
@@ -41361,28 +41534,6 @@ function applyTimeFormat(hour, minute, format) {
 /******/ 	};
 /******/ })();
 /******/ 
-/******/ /* webpack/runtime/ensure chunk */
-/******/ (() => {
-/******/ 	__webpack_require__.f = {};
-/******/ 	// This file contains only the entry chunk.
-/******/ 	// The chunk loading function for additional chunks
-/******/ 	__webpack_require__.e = (chunkId) => {
-/******/ 		return Promise.all(Object.keys(__webpack_require__.f).reduce((promises, key) => {
-/******/ 			__webpack_require__.f[key](chunkId, promises);
-/******/ 			return promises;
-/******/ 		}, []));
-/******/ 	};
-/******/ })();
-/******/ 
-/******/ /* webpack/runtime/get javascript chunk filename */
-/******/ (() => {
-/******/ 	// This function allow to reference async chunks
-/******/ 	__webpack_require__.u = (chunkId) => {
-/******/ 		// return url for filenames based on template
-/******/ 		return "" + chunkId + ".index.js";
-/******/ 	};
-/******/ })();
-/******/ 
 /******/ /* webpack/runtime/hasOwnProperty shorthand */
 /******/ (() => {
 /******/ 	__webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
@@ -41430,48 +41581,9 @@ function applyTimeFormat(hour, minute, format) {
 /******/ 		"main": 0
 /******/ 	};
 /******/ 	
-/******/ 	var installChunk = (data) => {
-/******/ 		var {__webpack_esm_ids__, __webpack_esm_modules__, __webpack_esm_runtime__} = data;
-/******/ 		// add "modules" to the modules object,
-/******/ 		// then flag all "ids" as loaded and fire callback
-/******/ 		var moduleId, chunkId, i = 0;
-/******/ 		for(moduleId in __webpack_esm_modules__) {
-/******/ 			if(__webpack_require__.o(__webpack_esm_modules__, moduleId)) {
-/******/ 				__webpack_require__.m[moduleId] = __webpack_esm_modules__[moduleId];
-/******/ 			}
-/******/ 		}
-/******/ 		if(__webpack_esm_runtime__) __webpack_esm_runtime__(__webpack_require__);
-/******/ 		for(;i < __webpack_esm_ids__.length; i++) {
-/******/ 			chunkId = __webpack_esm_ids__[i];
-/******/ 			if(__webpack_require__.o(installedChunks, chunkId) && installedChunks[chunkId]) {
-/******/ 				installedChunks[chunkId][0]();
-/******/ 			}
-/******/ 			installedChunks[__webpack_esm_ids__[i]] = 0;
-/******/ 		}
+/******/ 	// no install chunk
 /******/ 	
-/******/ 	}
-/******/ 	
-/******/ 	__webpack_require__.f.j = (chunkId, promises) => {
-/******/ 			// import() chunk loading for javascript
-/******/ 			var installedChunkData = __webpack_require__.o(installedChunks, chunkId) ? installedChunks[chunkId] : undefined;
-/******/ 			if(installedChunkData !== 0) { // 0 means "already installed".
-/******/ 	
-/******/ 				// a Promise means "currently loading".
-/******/ 				if(installedChunkData) {
-/******/ 					promises.push(installedChunkData[1]);
-/******/ 				} else {
-/******/ 					if(true) { // all chunks have JS
-/******/ 						// setup Promise in chunk cache
-/******/ 						var promise = import("./" + __webpack_require__.u(chunkId)).then(installChunk, (e) => {
-/******/ 							if(installedChunks[chunkId] !== 0) installedChunks[chunkId] = undefined;
-/******/ 							throw e;
-/******/ 						});
-/******/ 						var promise = Promise.race([promise, new Promise((resolve) => (installedChunkData = installedChunks[chunkId] = [resolve]))])
-/******/ 						promises.push(installedChunkData[1] = promise);
-/******/ 					}
-/******/ 				}
-/******/ 			}
-/******/ 	};
+/******/ 	// no chunk on demand loading
 /******/ 	
 /******/ 	// no prefetching
 /******/ 	
@@ -41494,7 +41606,7 @@ var __webpack_exports__ = {};
   \**********************/
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _extractors_extractState__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./extractors/extractState */ "./src/extractors/extractState.ts");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _ui_settingsUI__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ui/settingsUI */ "./src/ui/settingsUI.tsx");
 /* harmony import */ var _ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./ui/stateDisplay */ "./src/ui/stateDisplay.tsx");
 /* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./settings */ "./src/settings.ts");
 /* harmony import */ var _injectors_injectState__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./injectors/injectState */ "./src/injectors/injectState.ts");
@@ -41519,11 +41631,11 @@ async function init() {
     (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.injectStyles)();
     // Initialize settings
     await _settings__WEBPACK_IMPORTED_MODULE_3__.settingsManager.initializeSettings();
-    await (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.initSettingsUI)();
+    await (0,_ui_settingsUI__WEBPACK_IMPORTED_MODULE_1__.initSettingsUI)();
     // Initialize state display (handles chat change)
     (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.initStateDisplay)();
     (0,_extractors_extractState__WEBPACK_IMPORTED_MODULE_0__.setupExtractionAbortHandler)();
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_3__.getSettings)();
     const autoExtractResponses = settings.autoMode === 'responses' || settings.autoMode === 'both';
     const autoExtractInputs = settings.autoMode === 'inputs' || settings.autoMode === 'both';
     // Hook user messages
@@ -41569,7 +41681,7 @@ async function init() {
     // Update injection on chat change
     context.eventSource.on(context.event_types.CHAT_CHANGED, (async () => {
         const ctx = SillyTavern.getContext();
-        const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+        const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_3__.getSettings)();
         // Run migration before rendering
         if (settings.profileId) {
             await (0,_migrations_migrateOldTime__WEBPACK_IMPORTED_MODULE_7__.migrateOldTimeFormats)(ctx, settings.profileId);

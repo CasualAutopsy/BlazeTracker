@@ -1,7 +1,8 @@
 import type { ExtractedData } from 'sillytavern-utils-lib/types';
 import type { Message } from 'sillytavern-utils-lib';
 import { Generator } from 'sillytavern-utils-lib';
-import { getSettings } from '../ui/settings';
+import { getSettings } from '../settings';
+import { getPrompt } from './prompts';
 import type { Scene, Character } from '../types/state';
 import { calculateTensionDirection } from '../utils/tension';
 
@@ -39,8 +40,7 @@ export const SCENE_SCHEMA = {
       properties: {
         level: {
           type: 'string',
-          enum: ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'],
-          description: 'The level of tension in the current scene. This should not remain the same for too long.'
+          enum: ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive']
         },
         direction: {
           type: 'string',
@@ -83,108 +83,6 @@ const SCENE_EXAMPLE = JSON.stringify({
 }, null, 2);
 
 // ============================================
-// Prompts
-// ============================================
-
-const SCENE_INITIAL_PROMPT = `Analyze this roleplay scene and extract the scene state. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Determine the topic, tone, tension, and significant events of the scene.
-- Topic should be 3-5 words summarizing the main focus.
-- Tone should be 2-3 words capturing the emotional atmosphere.
-</general>
-<tension>
-- Level indicates how charged the scene is emotionally/dramatically. It can go up as well as down.
-- Type categorizes what kind of tension: confrontation, intimate, negotiation, etc.
-- Direction will be calculated automatically, but set your best guess.
-- Make sure to update this when necessary.
-- Scenes should not remain the same tension level for too long.
-<levels>
-- relaxed means that there is very little tension in the scene, it is cozy, like post-coital cuddles or relaxing and watching TV
-- aware means that there is some tension, in an intimate scene this could be some glancing, in a confrontation, minor disagreement
-- guarded means that there is a little more tension, in an intimate scene this could be playful teasing, in a vulnerable scene it could be internal tension like characters wondering what to say and what not to say
-- tense means that the scene is approaching a breaking point, it will either escalate into something higher or de-escalate, it shouldn't stay at this level for long
-- charged means that the tension is obvious, in an intimate scene this could lead to kisses or sex, in a celebratory scene, a big reveal or someone overdoing it at the bar
-- volatile means that the tension is about to go over the edge, in a confrontation this could be a fight, in an intimate scene this is leading to something big
-- explosive is the highest level of tension, a fight, the moment before sex, just before a major decision, then it will almost always de-escalate
-</levels>
-</tension>
-<recent_events>
-- Include significant events that affect the ongoing narrative.
-- Events should be consequential: discoveries, relationship changes, injuries, commitments.
-- Maximum 5 events, prioritize the most important ones.
-</recent_events>
-</instructions>
-
-<character_info>
-{{characterInfo}}
-</character_info>
-
-<characters_present>
-{{charactersSummary}}
-</characters_present>
-
-<scene_messages>
-{{messages}}
-</scene_messages>
-
-<schema>
-${JSON.stringify(SCENE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${SCENE_EXAMPLE}
-</output_example>
-
-Extract the scene state as valid JSON:`;
-
-const SCENE_UPDATE_PROMPT = `Analyze these roleplay messages and update the scene state. You must only return valid JSON with no commentary.
-
-<instructions>
-<general>
-- Update topic if the focus has shifted.
-- Update tone if the emotional atmosphere has changed.
-- Consider whether tension has increased, decreased, or remained stable.
-</general>
-<tension>
-- Adjust level based on what happened in the messages.
-- Type may change: a negotiation could become a confrontation.
-- Level should be recalculated, the previous_scene should not be assumed to be right.
-- Direction will be recalculated based on level change.
-</tension>
-<recent_events>
-- Keep events that are still relevant to the ongoing scene.
-- Remove events that have been resolved or superseded.
-- Add new significant events from the recent messages.
-- Maximum 5 events - prune aggressively, keep most salient.
-- Even if previous_scene has more than 5 events, return at most 5.
-</recent_events>
-</instructions>
-
-<characters_present>
-{{charactersSummary}}
-</characters_present>
-
-<previous_scene>
-{{previousScene}}
-</previous_scene>
-
-<recent_messages>
-{{messages}}
-</recent_messages>
-
-<schema>
-${JSON.stringify(SCENE_SCHEMA, null, 2)}
-</schema>
-
-<output_example>
-${SCENE_EXAMPLE}
-</output_example>
-
-Extract the updated scene state as valid JSON:`;
-
-// ============================================
 // Public API
 // ============================================
 
@@ -203,18 +101,24 @@ export async function extractScene(
     .map(c => `${c.name}: ${c.mood.join(', ')} - ${c.activity || c.position}`)
     .join('\n');
 
+  const schemaStr = JSON.stringify(SCENE_SCHEMA, null, 2);
+
   let prompt: string;
 
   if (isInitial) {
-    prompt = SCENE_INITIAL_PROMPT
+    prompt = getPrompt('scene_initial')
       .replace('{{characterInfo}}', characterInfo)
       .replace('{{charactersSummary}}', charactersSummary)
-      .replace('{{messages}}', messages);
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', SCENE_EXAMPLE);
   } else {
-    prompt = SCENE_UPDATE_PROMPT
+    prompt = getPrompt('scene_update')
       .replace('{{charactersSummary}}', charactersSummary)
-      .replace('{{previousScene}}', JSON.stringify(previousScene, null, 2))
-      .replace('{{messages}}', messages);
+      .replace('{{previousState}}', JSON.stringify(previousScene, null, 2))
+      .replace('{{messages}}', messages)
+      .replace('{{schema}}', schemaStr)
+      .replace('{{schemaExample}}', SCENE_EXAMPLE);
   }
 
   const llmMessages: Message[] = [
@@ -225,7 +129,7 @@ export async function extractScene(
   const response = await makeGeneratorRequest(
     llmMessages,
     settings.profileId,
-    settings.maxResponseTokens,
+    200,
     abortSignal
   );
 
