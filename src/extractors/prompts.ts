@@ -530,6 +530,8 @@ Extract updated characters as valid JSON array:`,
 </instructions>
 
 <character_info>
+{{userInfo}}
+
 {{characterInfo}}
 </character_info>
 

@@ -389,6 +389,88 @@ describe('parseJsonResponse', () => {
 			).toThrow('TestModule');
 		});
 	});
+
+	describe('preprocessing - thinking blocks', () => {
+		it('strips content before </think>', () => {
+			const input = '<think>Let me analyze this...</think>{"name": "test"}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('strips content before </thinking>', () => {
+			const input = '<thinking>Some reasoning here</thinking>{"value": 123}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ value: 123 });
+		});
+
+		it('strips content before [/THINK]', () => {
+			const input = '[THINK]Processing...[/THINK]{"result": true}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ result: true });
+		});
+
+		it('strips content before [/REASONING]', () => {
+			const input = '[REASONING]Step by step...[/REASONING]{"answer": 42}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ answer: 42 });
+		});
+
+		it('handles case-insensitive thinking tags', () => {
+			const input = '<THINK>Uppercase thinking</THINK>{"name": "test"}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('handles </thought> tag', () => {
+			const input = '<thought>My thoughts</thought>{"data": "value"}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ data: 'value' });
+		});
+
+		it('handles </reflection> tag', () => {
+			const input = '<reflection>Reflecting...</reflection>[1, 2, 3]';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual([1, 2, 3]);
+		});
+	});
+
+	describe('preprocessing - garbage stripping', () => {
+		it('strips text before first brace', () => {
+			const input = 'Here is the JSON: {"name": "test"}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('strips text after last brace', () => {
+			const input = '{"name": "test"} Hope this helps!';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('strips text before and after JSON', () => {
+			const input = 'Output: {"name": "test"}\n\nLet me know if you need more.';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('strips XML tags around JSON', () => {
+			const input = '<response>{"name": "test"}</response>';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('handles arrays with surrounding garbage', () => {
+			const input = 'The list is: [1, 2, 3] as requested.';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual([1, 2, 3]);
+		});
+
+		it('handles complex garbage with thinking and XML', () => {
+			const input = '<think>Processing request</think><output>{"result": "success"}</output>';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ result: 'success' });
+		});
+	});
 });
 
 // ============================================

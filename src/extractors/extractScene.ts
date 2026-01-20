@@ -154,6 +154,7 @@ export async function extractScene(
 	isInitial: boolean,
 	messages: string,
 	characters: Character[],
+	userInfo: string,
 	characterInfo: string,
 	previousScene: Scene | null,
 	abortSignal?: AbortSignal,
@@ -169,20 +170,21 @@ export async function extractScene(
 
 	const prompt = isInitial
 		? getPrompt('scene_initial')
-				.replace('{{characterInfo}}', characterInfo)
-				.replace('{{charactersSummary}}', charactersSummary)
-				.replace('{{messages}}', messages)
-				.replace('{{schema}}', schemaStr)
-				.replace('{{schemaExample}}', SCENE_EXAMPLE)
+			.replace('{{userInfo}}', userInfo)
+			.replace('{{characterInfo}}', characterInfo)
+			.replace('{{charactersSummary}}', charactersSummary)
+			.replace('{{messages}}', messages)
+			.replace('{{schema}}', schemaStr)
+			.replace('{{schemaExample}}', SCENE_EXAMPLE)
 		: getPrompt('scene_update')
-				.replace('{{charactersSummary}}', charactersSummary)
-				.replace(
-					'{{previousState}}',
-					JSON.stringify(previousScene, null, 2),
-				)
-				.replace('{{messages}}', messages)
-				.replace('{{schema}}', schemaStr)
-				.replace('{{schemaExample}}', SCENE_EXAMPLE);
+			.replace('{{charactersSummary}}', charactersSummary)
+			.replace(
+				'{{previousState}}',
+				JSON.stringify(previousScene, null, 2),
+			)
+			.replace('{{messages}}', messages)
+			.replace('{{schema}}', schemaStr)
+			.replace('{{schemaExample}}', SCENE_EXAMPLE);
 
 	const llmMessages = buildExtractionMessages(SYSTEM_PROMPT, prompt);
 

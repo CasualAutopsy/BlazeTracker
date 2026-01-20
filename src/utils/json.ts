@@ -18,6 +18,72 @@ export interface ParseOptions {
 // ============================================
 
 /**
+ * Common thinking block close tags from various models.
+ */
+const THINKING_CLOSERS = [
+	'</think>',
+	'</thinking>',
+	'</thought>',
+	'</reasoning>',
+	'</reason>',
+	'</reflection>',
+	'[/THINK]',
+	'[/THINKING]',
+	'[/THOUGHT]',
+	'[/REASONING]',
+	'[/REASON]',
+	'[/REFLECTION]',
+];
+
+/**
+ * Strip content before thinking block closers and trim to JSON boundaries.
+ */
+function preprocessJsonResponse(input: string): string {
+	let result = input;
+
+	// Strip everything up to and including thinking close tags
+	for (const closer of THINKING_CLOSERS) {
+		const idx = result.toLowerCase().indexOf(closer.toLowerCase());
+		if (idx !== -1) {
+			result = result.slice(idx + closer.length);
+		}
+	}
+
+	// Find the first { or [ and last } or ]
+	const firstBrace = result.indexOf('{');
+	const firstBracket = result.indexOf('[');
+	const lastBrace = result.lastIndexOf('}');
+	const lastBracket = result.lastIndexOf(']');
+
+	// Determine start position (first { or [)
+	let start = -1;
+	if (firstBrace !== -1 && firstBracket !== -1) {
+		start = Math.min(firstBrace, firstBracket);
+	} else if (firstBrace !== -1) {
+		start = firstBrace;
+	} else if (firstBracket !== -1) {
+		start = firstBracket;
+	}
+
+	// Determine end position (last } or ])
+	let end = -1;
+	if (lastBrace !== -1 && lastBracket !== -1) {
+		end = Math.max(lastBrace, lastBracket);
+	} else if (lastBrace !== -1) {
+		end = lastBrace;
+	} else if (lastBracket !== -1) {
+		end = lastBracket;
+	}
+
+	// Extract JSON portion if valid boundaries found
+	if (start !== -1 && end !== -1 && end > start) {
+		result = result.slice(start, end + 1);
+	}
+
+	return result.trim();
+}
+
+/**
  * Fix directional/smart quotes to straight quotes.
  * " " „ → "
  * ' ' ‚ → '
@@ -184,6 +250,9 @@ export function parseJsonResponse<T = unknown>(response: string, options: ParseO
 	if (jsonMatch) {
 		jsonStr = jsonMatch[1].trim();
 	}
+
+	// Preprocess: strip thinking blocks and extract JSON boundaries
+	jsonStr = preprocessJsonResponse(jsonStr);
 
 	// Extract based on expected shape
 	if (shape === 'array') {

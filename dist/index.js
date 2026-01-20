@@ -38536,7 +38536,7 @@ const VALID_TENSION_TYPES = [
 // ============================================
 // Public API
 // ============================================
-async function extractScene(isInitial, messages, characters, characterInfo, previousScene, abortSignal) {
+async function extractScene(isInitial, messages, characters, userInfo, characterInfo, previousScene, abortSignal) {
     const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
     // Create a brief summary of characters for context
     const charactersSummary = characters
@@ -38545,6 +38545,7 @@ async function extractScene(isInitial, messages, characters, characterInfo, prev
     const schemaStr = JSON.stringify(SCENE_SCHEMA, null, 2);
     const prompt = isInitial
         ? (0,_prompts__WEBPACK_IMPORTED_MODULE_1__.getPrompt)('scene_initial')
+            .replace('{{userInfo}}', userInfo)
             .replace('{{characterInfo}}', characterInfo)
             .replace('{{charactersSummary}}', charactersSummary)
             .replace('{{messages}}', messages)
@@ -38753,7 +38754,7 @@ async function extractState(context, messageId, previousState, abortSignal, opti
             // Scene needs at least 2 messages for tension analysis
             const sceneMessages = formatMessagesForScene(context, messageId, lastXMessages, previousState);
             const isInitialScene = !previousState?.scene;
-            scene = await (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.extractScene)(isInitialScene, sceneMessages, characters, isInitial ? characterInfo : '', previousState?.scene ?? null, abortController.signal);
+            scene = await (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.extractScene)(isInitialScene, sceneMessages, characters, isInitialScene ? userInfo : '', isInitialScene ? characterInfo : '', previousState?.scene ?? null, abortController.signal);
         }
         else {
             // Carry forward previous scene or create default
@@ -39731,6 +39732,8 @@ Extract updated characters as valid JSON array:`,
 </instructions>
 
 <character_info>
+{{userInfo}}
+
 {{characterInfo}}
 </character_info>
 
@@ -41487,6 +41490,68 @@ __webpack_require__.r(__webpack_exports__);
 // JSON Repair Functions
 // ============================================
 /**
+ * Common thinking block close tags from various models.
+ */
+const THINKING_CLOSERS = [
+    '</think>',
+    '</thinking>',
+    '</thought>',
+    '</reasoning>',
+    '</reason>',
+    '</reflection>',
+    '[/THINK]',
+    '[/THINKING]',
+    '[/THOUGHT]',
+    '[/REASONING]',
+    '[/REASON]',
+    '[/REFLECTION]',
+];
+/**
+ * Strip content before thinking block closers and trim to JSON boundaries.
+ */
+function preprocessJsonResponse(input) {
+    let result = input;
+    // Strip everything up to and including thinking close tags
+    for (const closer of THINKING_CLOSERS) {
+        const idx = result.toLowerCase().indexOf(closer.toLowerCase());
+        if (idx !== -1) {
+            result = result.slice(idx + closer.length);
+        }
+    }
+    // Find the first { or [ and last } or ]
+    const firstBrace = result.indexOf('{');
+    const firstBracket = result.indexOf('[');
+    const lastBrace = result.lastIndexOf('}');
+    const lastBracket = result.lastIndexOf(']');
+    // Determine start position (first { or [)
+    let start = -1;
+    if (firstBrace !== -1 && firstBracket !== -1) {
+        start = Math.min(firstBrace, firstBracket);
+    }
+    else if (firstBrace !== -1) {
+        start = firstBrace;
+    }
+    else if (firstBracket !== -1) {
+        start = firstBracket;
+    }
+    // Determine end position (last } or ])
+    let end = -1;
+    if (lastBrace !== -1 && lastBracket !== -1) {
+        end = Math.max(lastBrace, lastBracket);
+    }
+    else if (lastBrace !== -1) {
+        end = lastBrace;
+    }
+    else if (lastBracket !== -1) {
+        end = lastBracket;
+    }
+    // Extract JSON portion if valid boundaries found
+    if (start !== -1 && end !== -1 && end > start) {
+        result = result.slice(start, end + 1);
+    }
+    return result.trim();
+}
+/**
  * Fix directional/smart quotes to straight quotes.
  * " " „ → "
  * ' ' ‚ → '
@@ -41623,6 +41688,8 @@ function parseJsonResponse(response, options = {}) {
     if (jsonMatch) {
         jsonStr = jsonMatch[1].trim();
     }
+    // Preprocess: strip thinking blocks and extract JSON boundaries
+    jsonStr = preprocessJsonResponse(jsonStr);
     // Extract based on expected shape
     if (shape === 'array') {
         const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);

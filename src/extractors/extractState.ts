@@ -210,7 +210,8 @@ export async function extractState(
 				isInitialScene,
 				sceneMessages,
 				characters,
-				isInitial ? characterInfo : '',
+				isInitialScene ? userInfo : '',
+				isInitialScene ? characterInfo : '',
 				previousState?.scene ?? null,
 				abortController.signal,
 			);
