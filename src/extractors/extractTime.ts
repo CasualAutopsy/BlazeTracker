@@ -62,16 +62,16 @@ const DELTA_SCHEMA = {
   type: 'object',
   properties: {
     hours: { type: 'number', description: 'Hours passed. 0 if less than an hour.' },
-    minutes: { type: 'number', description: 'Minutes passed (0-59). Added to hours.' },
-    seconds: { type: 'number', description: 'Seconds passed (0-59). Usually 0 unless specifically mentioned.' },
+    minutes: { type: 'number', description: 'Minutes passed (0-59).' },
+    seconds: { type: 'number', description: 'Seconds passed (0-59).' },
   },
   required: ['hours', 'minutes', 'seconds'],
 };
 
 const DELTA_EXAMPLE = JSON.stringify({
   hours: 0,
-  minutes: 5,
-  seconds: 0,
+  minutes: 2,
+  seconds: 30,
 }, null, 2);
 
 // ============================================
@@ -108,17 +108,20 @@ Extract the narrative date and time as valid JSON:`;
 const DELTA_PROMPT = `Analyze these roleplay messages and determine how much narrative time has passed. You must only return valid JSON with no commentary.
 
 <instructions>
-- Determine how much time passes WITHIN this message.
+- Determine how much time passes WITHIN these messages based on their actual content.
+- The example output below is just showing the JSON format - do NOT copy its values.
 - Look for explicit time jumps: "an hour later", "after a few minutes", "the next morning".
 - Look for implicit time passage: travel, sleeping, waiting, activities with known durations.
-- If the message is just dialogue or immediate action with no time skip, return all zeros.
-- Conversations without time skips: 1-2 minutes typically.
-- Walking somewhere nearby: 5-15 minutes.
-- Napping: 1-3 hours typically but consider currentTime.
-- Sleeping: 6-10 hours typically but dependent on currentTime.
-- "A few minutes": 3-5 minutes.
-- "A while": 15-30 minutes.
-- "Some time": 30-60 minutes.
+- If the messages are just dialogue or immediate action with no time skip, return small values (0-2 minutes).
+- Estimate based on what actually happens in the messages:
+  * Pure dialogue exchange: 1-2 minutes
+  * Walking somewhere nearby: 5-15 minutes
+  * Driving across town: 15-45 minutes
+  * Napping: 1-3 hours (consider currentTime)
+  * Sleeping overnight: 6-10 hours (consider currentTime)
+  * "A few minutes": 3-5 minutes
+  * "A while": 15-30 minutes
+  * "Some time": 30-60 minutes
 - Be conservative - if unsure, prefer smaller time jumps.
 </instructions>
 
@@ -126,19 +129,19 @@ const DELTA_PROMPT = `Analyze these roleplay messages and determine how much nar
 {{currentTime}}
 </current_time>
 
-<message>
+<messages>
 {{message}}
-</message>
+</messages>
 
 <schema>
 ${JSON.stringify(DELTA_SCHEMA, null, 2)}
 </schema>
 
-<output_example>
+<output_format_example>
 ${DELTA_EXAMPLE}
-</output_example>
+</output_format_example>
 
-Extract the time delta as valid JSON:`;
+Based on the actual content of the messages above, extract the time delta as valid JSON:`;
 
 // ============================================
 // Time Tracker State (module-level singleton)

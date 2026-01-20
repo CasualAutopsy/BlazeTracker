@@ -4,6 +4,7 @@ import type { CharacterOutfit, TrackedState, Scene, NarrativeDateTime } from '..
 import type { STContext } from '../types/st';
 import { st_echo } from 'sillytavern-utils-lib/config';
 import { extractState } from '../extractors/extractState';
+import { onExtractionProgress, getStepLabel, type ExtractionStep, type ExtractionProgress } from '../extractors/extractionProgress';
 import { getMessageState, setMessageState } from '../utils/messageState';
 import { openStateEditor } from './stateEditor';
 import { updateInjectionFromChat } from '../injectors/injectState';
@@ -62,6 +63,10 @@ const roots = new Map<number, ReactDOM.Root>();
 
 // Track ongoing extractions - exported so index.ts can check
 export const extractionInProgress = new Set<number>();
+
+// Track current extraction step for UI updates
+let currentExtractionStep: ExtractionStep = 'idle';
+let currentExtractionMessageId: number | null = null;
 
 // --- Helper Functions ---
 
@@ -252,16 +257,18 @@ function Character({ character }: CharacterProps) {
 interface StateDisplayProps {
   stateData: StoredStateData | null;
   isExtracting?: boolean;
+  extractionStep?: ExtractionStep;
 }
 
-function StateDisplay({ stateData, isExtracting }: StateDisplayProps) {
+function StateDisplay({ stateData, isExtracting, extractionStep }: StateDisplayProps) {
   // Show loading state while extracting
   if (isExtracting) {
+    const stepLabel = extractionStep ? getStepLabel(extractionStep) : 'Extracting...';
     return (
       <div className="bt-state-container bt-extracting">
         <div className="bt-loading-indicator">
           <i className="fa-solid fa-fire fa-beat-fade"></i>
-          <span>Extracting scene state...</span>
+          <span>{stepLabel}</span>
         </div>
       </div>
     );
@@ -350,8 +357,9 @@ export async function doExtractState(messageId: number): Promise<StoredStateData
     return null;
   }
 
-  // Mark extraction in progress
+  // Mark extraction in progress and track which message
   extractionInProgress.add(messageId);
+  currentExtractionMessageId = messageId;
 
   // Try to show loading state (synchronous - DOM should be ready since we're called from
   // USER_MESSAGE_RENDERED or GENERATION_ENDED, not during streaming)
@@ -360,7 +368,7 @@ export async function doExtractState(messageId: number): Promise<StoredStateData
 
   if (messageElement && mesBlock) {
     updateMenuButtonState(messageId, true);
-    renderMessageStateInternal(messageId, messageElement, null, true);
+    renderMessageStateInternal(messageId, messageElement, null, true, currentExtractionStep);
   }
 
   const previousState = getPreviousState(context, messageId);
@@ -403,6 +411,9 @@ export async function doExtractState(messageId: number): Promise<StoredStateData
     return null;
   } finally {
     extractionInProgress.delete(messageId);
+    if (currentExtractionMessageId === messageId) {
+      currentExtractionMessageId = null;
+    }
     updateMenuButtonState(messageId, false);
   }
 }
@@ -467,7 +478,8 @@ function renderMessageStateInternal(
   messageId: number,
   messageElement: Element,
   stateData: StoredStateData | null,
-  isExtracting: boolean
+  isExtracting: boolean,
+  extractionStep?: ExtractionStep
 ) {
   addMenuButton(messageId, messageElement);
 
@@ -509,7 +521,7 @@ function renderMessageStateInternal(
     roots.set(messageId, root);
   }
 
-  root.render(<StateDisplay stateData={stateData} isExtracting={isExtracting} />);
+  root.render(<StateDisplay stateData={stateData} isExtracting={isExtracting} extractionStep={extractionStep} />);
 
   // If this is the most recent message, scroll to the end.
   const context = SillyTavern.getContext() as STContext;
@@ -618,6 +630,19 @@ async function editMessageState(messageId: number): Promise<void> {
 
 export function initStateDisplay() {
   const context = SillyTavern.getContext();
+
+  // Wire up extraction progress updates
+  onExtractionProgress((progress: ExtractionProgress) => {
+    currentExtractionStep = progress.step;
+
+    // Re-render the extracting message to show updated step
+    if (currentExtractionMessageId !== null && extractionInProgress.has(currentExtractionMessageId)) {
+      const messageElement = document.querySelector(`[mesid="${currentExtractionMessageId}"]`);
+      if (messageElement) {
+        renderMessageStateInternal(currentExtractionMessageId, messageElement, null, true, progress.step);
+      }
+    }
+  });
 
   // Only handle chat change for initial render - let index.ts handle message events
   context.eventSource.on(context.event_types.CHAT_CHANGED, (() => {

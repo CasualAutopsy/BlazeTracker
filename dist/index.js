@@ -37901,280 +37901,240 @@ const EXTENSION_KEY = 'blazetracker';
 
 /***/ },
 
-/***/ "./src/extractors/extractState.ts"
-/*!****************************************!*\
-  !*** ./src/extractors/extractState.ts ***!
-  \****************************************/
+/***/ "./src/extractors/extractCharacters.ts"
+/*!*********************************************!*\
+  !*** ./src/extractors/extractCharacters.ts ***!
+  \*********************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   abortCurrentExtraction: () => (/* binding */ abortCurrentExtraction),
-/* harmony export */   extractState: () => (/* binding */ extractState),
-/* harmony export */   setupExtractionAbortHandler: () => (/* binding */ setupExtractionAbortHandler)
+/* harmony export */   CHARACTERS_SCHEMA: () => (/* binding */ CHARACTERS_SCHEMA),
+/* harmony export */   extractCharacters: () => (/* binding */ extractCharacters)
 /* harmony export */ });
-/* harmony import */ var _types_state__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../types/state */ "./src/types/state.ts");
-/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
-/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
-/* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
-/* harmony import */ var _utils_tension__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../utils/tension */ "./src/utils/tension.ts");
-/* harmony import */ var _extractTime__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./extractTime */ "./src/extractors/extractTime.ts");
+/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
+/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
 
 
-
-
-
-
-const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_1__.Generator();
-let currentAbortController = null;
-let extractionCount = 0;
-const EXTRACTION_PROMPT = `Analyze this roleplay conversation and extract the current state of the scene. You must only return valid JSON with no commentary.
+const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+// ============================================
+// Schema
+// ============================================
+const CHARACTERS_SCHEMA = {
+    type: 'array',
+    description: 'All characters present in the current scene',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            name: {
+                type: 'string',
+                description: "Character's name as used in the scene"
+            },
+            goals: {
+                type: 'array',
+                description: "Character's short-term goals",
+                items: { type: 'string' }
+            },
+            position: {
+                type: 'string',
+                description: "Physical position and where (e.g. 'sitting at the bar', 'leaning against the wall'). Be detailed about who they're facing/interacting with."
+            },
+            activity: {
+                type: 'string',
+                description: "Current activity if any (e.g. 'nursing a whiskey', 'texting on phone')"
+            },
+            mood: {
+                type: 'array',
+                description: 'Current emotional states',
+                minItems: 1,
+                maxItems: 5,
+                items: { type: 'string' }
+            },
+            physicalState: {
+                type: 'array',
+                description: 'Physical conditions affecting the character',
+                maxItems: 5,
+                items: { type: 'string' }
+            },
+            outfit: {
+                type: 'object',
+                description: 'Clothing items currently worn. Set to null if removed or if species would not wear clothes (pony, Pokémon, etc.)',
+                properties: {
+                    head: { type: ['string', 'null'], description: 'Headwear (null if none)' },
+                    jacket: { type: ['string', 'null'], description: 'Outer layer (null if none)' },
+                    torso: { type: ['string', 'null'], description: 'Shirt/top (null if none)' },
+                    legs: { type: ['string', 'null'], description: 'Pants/skirt (null if none)' },
+                    underwear: { type: ['string', 'null'], description: 'Underwear, be descriptive if partially removed' },
+                    socks: { type: ['string', 'null'], description: 'Socks/stockings, specify which foot if only one' },
+                    footwear: { type: ['string', 'null'], description: 'Shoes/boots, specify which foot if only one' }
+                },
+                required: ['head', 'jacket', 'torso', 'legs', 'underwear', 'socks', 'footwear']
+            },
+            dispositions: {
+                type: 'object',
+                description: 'Feelings toward other characters in the scene',
+                additionalProperties: {
+                    type: 'array',
+                    maxItems: 5,
+                    items: { type: 'string' }
+                }
+            }
+        },
+        required: ['name', 'position', 'activity', 'mood', 'physicalState', 'outfit', 'dispositions']
+    }
+};
+const CHARACTERS_EXAMPLE = JSON.stringify([
+    {
+        name: 'Elena',
+        position: 'Sitting in the booth, facing the entrance, hands wrapped around a coffee mug',
+        activity: 'Watching the door nervously',
+        mood: ['anxious', 'hopeful'],
+        goals: ['find out what Marcus wants', 'protect Sarah'],
+        physicalState: ['tired'],
+        outfit: {
+            head: null,
+            jacket: null,
+            torso: 'Dark red blouse',
+            legs: 'Black jeans',
+            underwear: 'Black lace bra and matching panties',
+            socks: 'Black tights',
+            footwear: 'Black ankle boots'
+        },
+        dispositions: {
+            Marcus: ['suspicious', 'curious'],
+            Sarah: ['trusting', 'protective']
+        }
+    }
+], null, 2);
+// ============================================
+// Prompts
+// ============================================
+const CHARACTERS_INITIAL_PROMPT = `Analyze this roleplay scene and extract all character states. You must only return valid JSON with no commentary.
 
 <instructions>
-<objective>
-- Your task is to produce a JSON object defining the state of the scene as it is at the end of recent_messages.
-- Your final JSON object must perfectly match the defined schema.
-- You must start from scratch each time. The previous_state is stale, and it's important that you prune it aggressively.
-- The previous_state is provided as an outdated set of information, it should never be returned exactly the same.
-- You must only output valid JSON, with no surrounding commentary.
-- Do NOT include time in your output - time is tracked separately.
-</objective>
 <general>
-- The previous_state, if defined, is the state of the scene prior to the recent_messages.
-- The previous_state is a reference, you should consider every item and whether it still applies for the new state.
-- You must analyse the recent_messages, determine the changes to the previous_state, and return a complete JSON object with the fresh state.
-- Where information is not provided, infer reasonable defaults. For example, if a character is wearing a full set of outdoors clothes, it is reasonable to assume they are wearing socks & underwear.
-- Pruning out of date information is just as important as adding new information. For every field, consider what is no longer important. Respect 'max' in the schema.
+- Extract all characters present in the scene.
+- For each character, determine their position, activity, mood, physical state, outfit, and dispositions.
+- Make reasonable inferences where information is not explicit.
 </general>
-<location>
-- Track location changes through the scene.
-- Do not include character or activity information in the location.
-- The 'area' should be a town, city or region i.e. 'Huntsville, AL', 'London, Great Britain', 'Mt. Doom, Middle Earth', 'Ponyville, Equestria'
-- The 'place' should be a building or sub-section i.e. 'John's Warehouse', 'Fleet Street McDonalds', 'Slime-Covered Cave', 'School of Friendship'
-- The 'position' should be a location within the place i.e. 'Manager's Office', 'The Corner Booth', 'Underground River Bed', or 'Rarity's Classroom'
-- Be careful to introduce new props introduced or props changing state.
-</location>
-<climate>
-- The current narrative time is provided below - use it to help infer climate and season.
-- Detect any weather changes in the text, infer the temperature from the time, location and weather.
-- Temperature for indoors locations should be based on the temperature indoors, not the temperature outdoors.
-- Consider the season based on the month and hemisphere of the location.
-</climate>
-<scene>
-- Consider whether the topic or tone of the scene has changed since the previous_state.
-- Consider the tension in the scene, characterise it as closely as possible with the enums allowed.
-- If the tension level is the same as the previous_state, the direction is stable. Otherwise, set the direction based on whether it has increased or decreased.
-- Now work through the recent events, retain events which are still relevant, discard events which have been superceded or resolved.
-- Add significant recent events which affect the state of the roleplay i.e. a secret discovered, a higher level of intimacy, an injury.
-- If there are more than five recentEvents, only return the five most salient ones.
-- Prune recent events aggressively if they are no longer relevant, or if there would be more than five.
-- You must not return more than five recentEvents, even if the previous_state has more than five.
-</scene>
-<characters>
-For each character in the scene, watch closely for the following:
-- Character enters/exits scene (add/remove from characters array)
-- Position changes (standing→sitting, moves across room)
-- Consider whether the character would usually wear clothes (i.e. a pony or a Pokémon would not), in this case only add clothes if explicitly mentioned, otherwise return null for all slots.
-- Outfit changes (removes jacket, unbuttons shirt, etc) → set slot to null if removed and add the item of clothing to location props
-- Do not suffix outfit.* with '(off)', '(removed)', '(undressed)' etc. Set the slot to null and add the item to location.props.
-- Fur and other anatomy do not count as part of a character's outfit. Do not include them when extracting outfit.
-- Outfit must be *specific*, 't-shirt' not 'default top' or 'unspecified top'.
-- Mood shifts (dialogue tone, reactions, internal thoughts)
-- Disposition changes (feelings toward others shift)
-</characters>
+<outfit_rules>
+- Consider whether the character would usually wear clothes (ponies, Pokémon, animals typically don't).
+- For non-clothed species, return null for all outfit slots unless explicitly dressed.
+- Be specific: 't-shirt' not 'default top' or 'unspecified top'.
+- Include underwear/socks with reasonable assumptions for clothed characters.
+- Fur, scales, and other anatomy do NOT count as outfit items.
+</outfit_rules>
+<dispositions>
+- Only include dispositions for characters who know each other exists.
+- Feelings should be specific: 'suspicious', 'attracted', 'annoyed', not just 'positive'.
+</dispositions>
 </instructions>
 
 <character_info>
 {{userInfo}}
+
 {{characterInfo}}
 </character_info>
 
-<current_narrative_time>
-{{currentTime}}
-</current_narrative_time>
+<current_location>
+{{location}}
+</current_location>
 
-<previous_state>
-{{previousState}}
-</previous_state>
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+${JSON.stringify(CHARACTERS_SCHEMA, null, 2)}
+</schema>
+
+<output_example>
+${CHARACTERS_EXAMPLE}
+</output_example>
+
+Extract all characters as valid JSON array:`;
+const CHARACTERS_UPDATE_PROMPT = `Analyze these roleplay messages and update character states. You must only return valid JSON with no commentary.
+
+<instructions>
+<general>
+- Start from the previous state and apply changes from the messages.
+- Watch for: characters entering/exiting, position changes, mood shifts, outfit changes.
+- Remove characters who have left the scene. Add characters who have entered.
+</general>
+<outfit_tracking>
+- If clothing is removed, set that slot to null.
+- Add removed clothing to location props (handled separately, just set slot to null here).
+- Do NOT suffix with '(off)', '(removed)' - just set to null.
+- Be specific about partially removed items: 'white panties (pulled aside)'.
+- Track which foot if only one shoe/sock remains.
+</outfit_tracking>
+<position_and_mood>
+- Update positions as characters move.
+- Update moods based on dialogue, reactions, internal thoughts.
+- Update dispositions as relationships evolve.
+</position_and_mood>
+<pruning>
+- Update goals as they're achieved or abandoned.
+- Clear physical states that have resolved.
+- Keep dispositions current - remove outdated feelings, add new ones.
+</pruning>
+</instructions>
+
+<current_location>
+{{location}}
+</current_location>
+
+<previous_characters>
+{{previousCharacters}}
+</previous_characters>
 
 <recent_messages>
 {{messages}}
 </recent_messages>
 
 <schema>
-{{schema}}
+${JSON.stringify(CHARACTERS_SCHEMA, null, 2)}
 </schema>
 
 <output_example>
-{{schemaExample}}
+${CHARACTERS_EXAMPLE}
 </output_example>
 
-Extract the current state as valid JSON (do NOT include time):`;
-function setSendButtonState(isGenerating) {
-    const context = SillyTavern.getContext();
-    if (isGenerating) {
-        context.deactivateSendButtons();
+Extract updated characters as valid JSON array:`;
+// ============================================
+// Public API
+// ============================================
+async function extractCharacters(isInitial, messages, location, userInfo, characterInfo, previousCharacters, abortSignal) {
+    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const locationStr = `${location.area} - ${location.place} (${location.position})`;
+    let prompt;
+    if (isInitial) {
+        prompt = CHARACTERS_INITIAL_PROMPT
+            .replace('{{userInfo}}', userInfo)
+            .replace('{{characterInfo}}', characterInfo)
+            .replace('{{location}}', locationStr)
+            .replace('{{messages}}', messages);
     }
     else {
-        context.activateSendButtons();
+        prompt = CHARACTERS_UPDATE_PROMPT
+            .replace('{{location}}', locationStr)
+            .replace('{{previousCharacters}}', JSON.stringify(previousCharacters, null, 2))
+            .replace('{{messages}}', messages);
     }
-}
-function setupExtractionAbortHandler() {
-    const context = SillyTavern.getContext();
-    context.eventSource.on(context.event_types.GENERATION_STOPPED, (() => {
-        if (currentAbortController) {
-            console.log('[BlazeTracker] Generation stopped, aborting extraction');
-            currentAbortController.abort();
-            currentAbortController = null;
-        }
-    }));
-}
-function abortCurrentExtraction() {
-    if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-    }
-}
-async function extractState(context, messageId, previousState, abortSignal) {
-    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_2__.getSettings)();
-    if (!settings.profileId) {
-        throw new Error('No connection profile selected. Please configure BlazeTracker in extension settings.');
-    }
-    // Create and register abort controller
-    const abortController = new AbortController();
-    currentAbortController = abortController;
-    // Track active extractions for button state
-    extractionCount++;
-    if (extractionCount === 1) {
-        setSendButtonState(true);
-    }
-    try {
-        const { lastXMessages, maxResponseTokens } = settings;
-        // ========================================
-        // STEP 1: Initialize time tracker from previous state if exists
-        // ========================================
-        if (previousState?.time) {
-            (0,_extractTime__WEBPACK_IMPORTED_MODULE_5__.setTimeTrackerState)(previousState.time);
-        }
-        // ========================================
-        // STEP 2: Extract time first (needed for climate inference)
-        // ========================================
-        let narrativeTime = previousState?.time ?? {
-            year: new Date().getFullYear(),
-            month: 6,
-            day: 15,
-            hour: 12,
-            minute: 0,
-            second: 0,
-            dayOfWeek: 'Monday',
-        };
-        // ========================================
-        // STEP 3: Extract state (with time context for climate)
-        // ========================================
-        // Get recent messages for context
-        let startIdx = 0;
-        if (previousState) {
-            for (let i = messageId - 1; i >= 0; i--) {
-                const msg = context.chat[i];
-                const stored = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_3__.getMessageState)(msg);
-                if (stored?.state) {
-                    startIdx = i + 1; // Start from message AFTER the one with state
-                    break;
-                }
-            }
-        }
-        // Get only new messages
-        const effectiveStart = Math.max(startIdx, messageId - lastXMessages);
-        const chatMessages = context.chat.slice(effectiveStart, messageId + 1);
-        // Format messages for prompt
-        const formattedMessages = chatMessages
-            .map((msg) => `${msg.name}: ${msg.mes}`)
-            .join('\n\n');
-        if (settings.trackTime !== false) {
-            narrativeTime = await (0,_extractTime__WEBPACK_IMPORTED_MODULE_5__.extractTime)(previousState !== null, formattedMessages, abortController.signal);
-        }
-        // Get user persona info
-        const userPersona = context.powerUserSettings?.persona_description || '';
-        const userInfo = userPersona
-            ? `Name: ${context.name1}\nDescription: ${userPersona
-                .replace(/\{\{user\}\}/gi, context.name1)
-                .replace(/\{\{char\}\}/gi, context.name2)}`
-            : `Name: ${context.name1}`;
-        // Get character info
-        const character = context.characters?.[context.characterId];
-        const charDescription = (character?.description || 'No description')
-            .replace(/\{\{char\}\}/gi, context.name2)
-            .replace(/\{\{user\}\}/gi, context.name1);
-        const characterInfo = `Name: ${context.name2}\nDescription: ${charDescription}`;
-        // Format time for prompt
-        const timeStr = formatNarrativeTimeForPrompt(narrativeTime);
-        // Build previous state without time for the prompt (avoid confusion)
-        const previousStateForPrompt = previousState
-            ? JSON.stringify(omitTime(previousState), null, 2)
-            : 'No previous state - this is the start of the scene.';
-        // Build the prompt
-        const prompt = EXTRACTION_PROMPT
-            .replace('{{characterInfo}}', previousState
-            ? 'Not provided - initial state calculated already.'
-            : characterInfo)
-            .replace('{{userInfo}}', previousState
-            ? 'Not provided - initial state calculated already.'
-            : userInfo)
-            .replace('{{currentTime}}', timeStr)
-            .replace('{{previousState}}', previousStateForPrompt)
-            .replace('{{messages}}', formattedMessages)
-            .replace('{{schema}}', JSON.stringify(_types_state__WEBPACK_IMPORTED_MODULE_0__.EXTRACTION_SCHEMA, null, 2))
-            .replace('{{schemaExample}}', (0,_types_state__WEBPACK_IMPORTED_MODULE_0__.getSchemaExample)());
-        const messages = [
-            { role: 'system', content: 'You are an expert state analysis agent. Return only valid JSON.' },
-            { role: 'user', content: prompt }
-        ];
-        // Call LLM via Generator
-        const response = await makeGeneratorRequest(messages, settings.profileId, maxResponseTokens, abortController.signal);
-        // Parse response (returns state without time)
-        const partialState = parseResponse(response);
-        // ========================================
-        // STEP 4: Merge time into final state
-        // ========================================
-        const state = {
-            ...partialState,
-            time: narrativeTime,
-        };
-        if (state.scene?.tension) {
-            state.scene.tension.direction = (0,_utils_tension__WEBPACK_IMPORTED_MODULE_4__.calculateTensionDirection)(state.scene.tension.level, previousState?.scene?.tension?.level);
-        }
-        return { state, raw: response };
-    }
-    finally {
-        extractionCount--;
-        if (extractionCount === 0) {
-            setSendButtonState(false);
-        }
-        if (currentAbortController === abortController) {
-            currentAbortController = null;
-        }
-    }
-}
-// ============================================
-// Helper Functions
-// ============================================
-function formatNarrativeTimeForPrompt(time) {
-    const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+    const llmMessages = [
+        { role: 'system', content: 'You are a character state analysis agent for roleplay scenes. Return only valid JSON.' },
+        { role: 'user', content: prompt }
     ];
-    const hour12 = time.hour % 12 || 12;
-    const ampm = time.hour < 12 ? 'AM' : 'PM';
-    const minuteStr = String(time.minute).padStart(2, '0');
-    return `${time.dayOfWeek}, ${monthNames[time.month - 1]} ${time.day}, ${time.year} at ${hour12}:${minuteStr} ${ampm}`;
+    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
+    return validateCharacters(parseJsonResponse(response));
 }
-function omitTime(state) {
-    const { time, ...rest } = state;
-    return rest;
-}
+// ============================================
+// Internal: LLM Communication
+// ============================================
 function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
     return new Promise((resolve, reject) => {
-        if (abortSignal && abortSignal.aborted) {
+        if (abortSignal?.aborted) {
             return reject(new DOMException('Aborted', 'AbortError'));
         }
         const abortController = new AbortController();
@@ -38187,7 +38147,7 @@ function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
             maxTokens,
             custom: { signal: abortController.signal },
             overridePayload: {
-                temperature: 0.8,
+                temperature: 0.7,
             }
         }, {
             abortController,
@@ -38209,54 +38169,1115 @@ function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
         });
     });
 }
-function parseResponse(response) {
-    // Try to extract JSON from response
-    // Handle cases where model wraps in markdown code blocks
+// ============================================
+// Internal: Response Parsing
+// ============================================
+function parseJsonResponse(response) {
     let jsonStr = response.trim();
-    // Remove markdown code blocks if present
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
         jsonStr = jsonMatch[1].trim();
     }
-    // Try to find JSON object if there's other text
+    // For characters, we expect an array
+    const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+        jsonStr = arrayMatch[0];
+    }
+    try {
+        return JSON.parse(jsonStr);
+    }
+    catch (e) {
+        console.error('[BlazeTracker/Characters] Failed to parse response:', e);
+        console.error('[BlazeTracker/Characters] Response was:', response);
+        throw new Error('Failed to parse characters extraction response as JSON');
+    }
+}
+function validateCharacters(data) {
+    if (!Array.isArray(data)) {
+        throw new Error('Invalid characters: expected array');
+    }
+    return data.map(validateCharacter);
+}
+function validateCharacter(data) {
+    if (!data.name || typeof data.name !== 'string') {
+        throw new Error('Invalid character: missing name');
+    }
+    if (!data.position || typeof data.position !== 'string') {
+        throw new Error(`Invalid character ${data.name}: missing position`);
+    }
+    // Ensure mood is an array
+    let mood = data.mood;
+    if (!Array.isArray(mood)) {
+        mood = mood ? [mood] : ['neutral'];
+    }
+    mood = mood.slice(0, 5);
+    // Validate outfit
+    const outfit = validateOutfit(data.outfit);
+    return {
+        name: data.name,
+        position: data.position,
+        activity: typeof data.activity === 'string' ? data.activity : undefined,
+        goals: Array.isArray(data.goals) ? data.goals : [],
+        mood,
+        physicalState: Array.isArray(data.physicalState) ? data.physicalState.slice(0, 5) : undefined,
+        outfit,
+        dispositions: validateDispositions(data.dispositions),
+    };
+}
+function validateOutfit(data) {
+    if (!data || typeof data !== 'object') {
+        return {
+            head: null,
+            jacket: null,
+            torso: null,
+            legs: null,
+            underwear: null,
+            socks: null,
+            footwear: null,
+        };
+    }
+    return {
+        head: typeof data.head === 'string' ? data.head : null,
+        jacket: typeof data.jacket === 'string' ? data.jacket : null,
+        torso: typeof data.torso === 'string' ? data.torso : null,
+        legs: typeof data.legs === 'string' ? data.legs : null,
+        underwear: typeof data.underwear === 'string' ? data.underwear : null,
+        socks: typeof data.socks === 'string' ? data.socks : null,
+        footwear: typeof data.footwear === 'string' ? data.footwear : null,
+    };
+}
+function validateDispositions(data) {
+    if (!data || typeof data !== 'object') {
+        return undefined;
+    }
+    const result = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (Array.isArray(value)) {
+            result[key] = value.filter(v => typeof v === 'string').slice(0, 5);
+        }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+
+/***/ },
+
+/***/ "./src/extractors/extractClimate.ts"
+/*!******************************************!*\
+  !*** ./src/extractors/extractClimate.ts ***!
+  \******************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CLIMATE_SCHEMA: () => (/* binding */ CLIMATE_SCHEMA),
+/* harmony export */   extractClimate: () => (/* binding */ extractClimate)
+/* harmony export */ });
+/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
+/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+
+
+const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+// ============================================
+// Schema
+// ============================================
+const CLIMATE_SCHEMA = {
+    type: 'object',
+    description: 'Current climate/weather conditions',
+    additionalProperties: false,
+    properties: {
+        weather: {
+            type: 'string',
+            enum: ['sunny', 'cloudy', 'snowy', 'rainy', 'windy', 'thunderstorm'],
+            description: 'The current weather in the locale (if characters are indoors, give the weather outdoors)'
+        },
+        temperature: {
+            type: 'number',
+            description: 'Current temperature in Fahrenheit (if characters are indoors, give the indoor temperature)'
+        }
+    },
+    required: ['weather', 'temperature']
+};
+const CLIMATE_EXAMPLE = JSON.stringify({
+    weather: 'rainy',
+    temperature: 52
+}, null, 2);
+// ============================================
+// Prompts
+// ============================================
+const CLIMATE_INITIAL_PROMPT = `Analyze this roleplay scene and determine the current climate/weather. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine the weather and temperature for this scene.
+- Consider the narrative time and location to infer season and typical weather.
+- Look for explicit weather mentions: rain, snow, sunshine, etc.
+- Look for contextual clues: characters wearing coats, sweating, mentioning cold/heat.
+- If characters are indoors, weather should be what it is outside, but temperature should be indoor temperature.
+- Consider the hemisphere: December is winter in the northern hemisphere, summer in the southern.
+- Temperature should be in Fahrenheit.
+</instructions>
+
+<narrative_time>
+{{narrativeTime}}
+</narrative_time>
+
+<location>
+{{location}}
+</location>
+
+<character_info>
+{{characterInfo}}
+</character_info>
+
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+${JSON.stringify(CLIMATE_SCHEMA, null, 2)}
+</schema>
+
+<output_example>
+${CLIMATE_EXAMPLE}
+</output_example>
+
+Extract the climate as valid JSON:`;
+const CLIMATE_UPDATE_PROMPT = `Analyze these roleplay messages and determine if the climate has changed. You must only return valid JSON with no commentary.
+
+<instructions>
+- Check if weather or temperature has changed since the previous state.
+- Weather can change: storm rolling in, rain stopping, etc.
+- Temperature can change: moving indoors/outdoors, time passing, heating/AC mentioned.
+- Consider the current narrative time when inferring temperature changes.
+- If characters moved indoors/outdoors, adjust temperature accordingly.
+- Temperature should be in Fahrenheit.
+</instructions>
+
+<narrative_time>
+{{narrativeTime}}
+</narrative_time>
+
+<current_location>
+{{location}}
+</current_location>
+
+<previous_climate>
+{{previousClimate}}
+</previous_climate>
+
+<recent_messages>
+{{messages}}
+</recent_messages>
+
+<schema>
+${JSON.stringify(CLIMATE_SCHEMA, null, 2)}
+</schema>
+
+<output_example>
+${CLIMATE_EXAMPLE}
+</output_example>
+
+Extract the current climate as valid JSON:`;
+// ============================================
+// Public API
+// ============================================
+async function extractClimate(isInitial, messages, narrativeTime, location, characterInfo, previousClimate, abortSignal) {
+    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    const timeStr = formatNarrativeTime(narrativeTime);
+    const locationStr = `${location.area} - ${location.place} (${location.position})`;
+    let prompt;
+    if (isInitial) {
+        prompt = CLIMATE_INITIAL_PROMPT
+            .replace('{{narrativeTime}}', timeStr)
+            .replace('{{location}}', locationStr)
+            .replace('{{characterInfo}}', characterInfo)
+            .replace('{{messages}}', messages);
+    }
+    else {
+        prompt = CLIMATE_UPDATE_PROMPT
+            .replace('{{narrativeTime}}', timeStr)
+            .replace('{{location}}', locationStr)
+            .replace('{{previousClimate}}', JSON.stringify(previousClimate, null, 2))
+            .replace('{{messages}}', messages);
+    }
+    const llmMessages = [
+        { role: 'system', content: 'You are a climate analysis agent for roleplay scenes. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+    ];
+    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
+    return validateClimate(parseJsonResponse(response));
+}
+// ============================================
+// Internal: Helpers
+// ============================================
+function formatNarrativeTime(time) {
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const hour12 = time.hour % 12 || 12;
+    const ampm = time.hour < 12 ? 'AM' : 'PM';
+    const minuteStr = String(time.minute).padStart(2, '0');
+    return `${time.dayOfWeek}, ${monthNames[time.month - 1]} ${time.day}, ${time.year} at ${hour12}:${minuteStr} ${ampm}`;
+}
+// ============================================
+// Internal: LLM Communication
+// ============================================
+function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
+    return new Promise((resolve, reject) => {
+        if (abortSignal?.aborted) {
+            return reject(new DOMException('Aborted', 'AbortError'));
+        }
+        const abortController = new AbortController();
+        if (abortSignal) {
+            abortSignal.addEventListener('abort', () => abortController.abort());
+        }
+        generator.generateRequest({
+            profileId,
+            prompt: messages,
+            maxTokens,
+            custom: { signal: abortController.signal },
+            overridePayload: {
+                temperature: 0.3,
+            }
+        }, {
+            abortController,
+            onFinish: (requestId, data, error) => {
+                if (error) {
+                    return reject(error);
+                }
+                if (!data) {
+                    return reject(new DOMException('Request aborted', 'AbortError'));
+                }
+                const content = data.content;
+                if (typeof content === 'string') {
+                    resolve(content);
+                }
+                else {
+                    resolve(JSON.stringify(content));
+                }
+            },
+        });
+    });
+}
+// ============================================
+// Internal: Response Parsing
+// ============================================
+function parseJsonResponse(response) {
+    let jsonStr = response.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+    }
     const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
     if (objectMatch) {
         jsonStr = objectMatch[0];
     }
     try {
-        const parsed = JSON.parse(jsonStr);
-        return validateState(parsed);
+        return JSON.parse(jsonStr);
     }
     catch (e) {
-        console.error('[BlazeTracker] Failed to parse response:', e);
-        console.error('[BlazeTracker] Response was:', response);
-        throw new Error('Failed to parse extraction response as JSON');
+        console.error('[BlazeTracker/Climate] Failed to parse response:', e);
+        console.error('[BlazeTracker/Climate] Response was:', response);
+        throw new Error('Failed to parse climate extraction response as JSON');
     }
 }
-function validateState(data) {
-    // Basic validation - ensure required fields exist
-    // Note: time is NOT validated here - it's added after
-    if (!data.location || !data.location.place) {
-        throw new Error('Invalid state: missing or invalid location');
-    }
-    if (!Array.isArray(data.characters)) {
-        throw new Error('Invalid state: characters must be an array');
-    }
-    // Ensure characters have required fields
-    for (const char of data.characters) {
-        if (!char.name || !char.position) {
-            throw new Error(`Invalid character data: missing name or position in ${JSON.stringify(char)}`);
+const VALID_WEATHER = ['sunny', 'cloudy', 'snowy', 'rainy', 'windy', 'thunderstorm'];
+function validateClimate(data) {
+    const weather = VALID_WEATHER.includes(data.weather) ? data.weather : 'sunny';
+    const temperature = typeof data.temperature === 'number'
+        ? Math.round(Math.max(-100, Math.min(150, data.temperature)))
+        : 70;
+    return { weather, temperature };
+}
+
+
+/***/ },
+
+/***/ "./src/extractors/extractLocation.ts"
+/*!*******************************************!*\
+  !*** ./src/extractors/extractLocation.ts ***!
+  \*******************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   LOCATION_SCHEMA: () => (/* binding */ LOCATION_SCHEMA),
+/* harmony export */   extractLocation: () => (/* binding */ extractLocation)
+/* harmony export */ });
+/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
+/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+
+
+const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+// ============================================
+// Schema
+// ============================================
+const LOCATION_SCHEMA = {
+    type: 'object',
+    description: 'Current location in the scene',
+    additionalProperties: false,
+    properties: {
+        area: {
+            type: 'string',
+            description: "General area: city, district, or region (e.g. 'The Glossy Mountains', 'Sherwood Forest', 'London, UK', 'Ponyville, Equestria')"
+        },
+        place: {
+            type: 'string',
+            description: "Specific place: building, establishment, room (e.g. 'The Rusty Nail bar', 'Elena's bedroom', 'Industrial Estate Parking Lot')"
+        },
+        position: {
+            type: 'string',
+            description: "Position within place - a room or local landmark. Do not mention characters/objects or scene actions (e.g. 'By the dumpster', 'The corner booth', 'In the jacuzzi', 'Near the bathroom door')"
+        },
+        props: {
+            type: 'array',
+            description: 'Nearby items affecting the scene. Add details where relevant (e.g. "TV - showing a western", "half-empty wine bottle")',
+            items: {
+                type: 'string',
+                description: 'A nearby item which is part of the scene, detailed'
+            },
+            maxItems: 10
         }
-        // Ensure mood is an array
-        if (!Array.isArray(char.mood)) {
-            char.mood = char.mood ? [char.mood] : ['neutral'];
+    },
+    required: ['area', 'place', 'position', 'props']
+};
+const LOCATION_EXAMPLE = JSON.stringify({
+    area: 'Downtown Seattle',
+    place: 'The Rusty Nail bar',
+    position: 'Corner booth near the jukebox',
+    props: ['Jukebox playing soft rock', 'Empty beer glasses', 'Bowl of peanuts', 'Flickering neon sign']
+}, null, 2);
+// ============================================
+// Prompts
+// ============================================
+const LOCATION_INITIAL_PROMPT = `Analyze this roleplay scene and extract the current location. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine where this scene takes place.
+- The 'area' should be a town, city or region (e.g. 'Huntsville, AL', 'London, Great Britain', 'Mt. Doom, Middle Earth', 'Ponyville, Equestria')
+- The 'place' should be a building or sub-section (e.g. 'John's Warehouse', 'Fleet Street McDonalds', 'Slime-Covered Cave', 'School of Friendship')
+- The 'position' should be a location within the place (e.g. 'Manager's Office', 'The Corner Booth', 'Underground River Bed', 'Rarity's Classroom')
+- Props are nearby items that affect or could affect the scene - be specific about their state.
+- Props should be items that can be interacted with. Walls are not prompts, people are not props, windows are not props etc.
+- Examples of props: a TV (what's showing? is it off?), a bookshelf, a book, a bed, a sofa, a can of Coke, a pair of shoes etc.
+- Each prop must be one individual item.
+- If location is not explicit, infer from context clues: character descriptions, activities, mentioned objects.
+</instructions>
+
+<character_info>
+{{characterInfo}}
+</character_info>
+
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+${JSON.stringify(LOCATION_SCHEMA, null, 2)}
+</schema>
+
+<output_example>
+${LOCATION_EXAMPLE}
+</output_example>
+
+Extract the location as valid JSON:`;
+const LOCATION_UPDATE_PROMPT = `Analyze these roleplay messages and extract any location changes. You must only return valid JSON with no commentary.
+
+<instructions>
+- Determine if the location has changed from the previous state.
+- Track any movement: characters entering new rooms, traveling, position changes within a space.
+- Update props: new items introduced, items picked up/removed, items changing state.
+- If no location change occurred, return the previous location but consider prop changes.
+- Be careful to track items that have been picked up (remove from props) or put down (add to props).
+- Prune props that are no longer relevant to the scene.
+</instructions>
+
+<previous_location>
+{{previousLocation}}
+</previous_location>
+
+<recent_messages>
+{{messages}}
+</recent_messages>
+
+<schema>
+${JSON.stringify(LOCATION_SCHEMA, null, 2)}
+</schema>
+
+<output_example>
+${LOCATION_EXAMPLE}
+</output_example>
+
+Extract the current location as valid JSON:`;
+// ============================================
+// Public API
+// ============================================
+async function extractLocation(isInitial, messages, characterInfo, previousLocation, abortSignal) {
+    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    let prompt;
+    if (isInitial) {
+        prompt = LOCATION_INITIAL_PROMPT
+            .replace('{{characterInfo}}', characterInfo)
+            .replace('{{messages}}', messages);
+    }
+    else {
+        prompt = LOCATION_UPDATE_PROMPT
+            .replace('{{previousLocation}}', JSON.stringify(previousLocation, null, 2))
+            .replace('{{messages}}', messages);
+    }
+    const llmMessages = [
+        { role: 'system', content: 'You are a location analysis agent for roleplay scenes. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+    ];
+    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
+    return validateLocation(parseJsonResponse(response));
+}
+// ============================================
+// Internal: LLM Communication
+// ============================================
+function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
+    return new Promise((resolve, reject) => {
+        if (abortSignal?.aborted) {
+            return reject(new DOMException('Aborted', 'AbortError'));
+        }
+        const abortController = new AbortController();
+        if (abortSignal) {
+            abortSignal.addEventListener('abort', () => abortController.abort());
+        }
+        generator.generateRequest({
+            profileId,
+            prompt: messages,
+            maxTokens,
+            custom: { signal: abortController.signal },
+            overridePayload: {
+                temperature: 0.5,
+            }
+        }, {
+            abortController,
+            onFinish: (requestId, data, error) => {
+                if (error) {
+                    return reject(error);
+                }
+                if (!data) {
+                    return reject(new DOMException('Request aborted', 'AbortError'));
+                }
+                const content = data.content;
+                if (typeof content === 'string') {
+                    resolve(content);
+                }
+                else {
+                    resolve(JSON.stringify(content));
+                }
+            },
+        });
+    });
+}
+// ============================================
+// Internal: Response Parsing
+// ============================================
+function parseJsonResponse(response) {
+    let jsonStr = response.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+    }
+    const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+        jsonStr = objectMatch[0];
+    }
+    try {
+        return JSON.parse(jsonStr);
+    }
+    catch (e) {
+        console.error('[BlazeTracker/Location] Failed to parse response:', e);
+        console.error('[BlazeTracker/Location] Response was:', response);
+        throw new Error('Failed to parse location extraction response as JSON');
+    }
+}
+function validateLocation(data) {
+    if (!data.place || typeof data.place !== 'string') {
+        throw new Error('Invalid location: missing or invalid place');
+    }
+    return {
+        area: typeof data.area === 'string' ? data.area : 'Unknown Area',
+        place: data.place,
+        position: typeof data.position === 'string' ? data.position : 'Main area',
+        props: Array.isArray(data.props) ? data.props.slice(0, 10) : [],
+    };
+}
+
+
+/***/ },
+
+/***/ "./src/extractors/extractScene.ts"
+/*!****************************************!*\
+  !*** ./src/extractors/extractScene.ts ***!
+  \****************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   SCENE_SCHEMA: () => (/* binding */ SCENE_SCHEMA),
+/* harmony export */   extractScene: () => (/* binding */ extractScene),
+/* harmony export */   shouldExtractScene: () => (/* binding */ shouldExtractScene)
+/* harmony export */ });
+/* harmony import */ var sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sillytavern-utils-lib */ "./node_modules/sillytavern-utils-lib/dist/index.js");
+/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _utils_tension__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/tension */ "./src/utils/tension.ts");
+
+
+
+const generator = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.Generator();
+// ============================================
+// Schema
+// ============================================
+const SCENE_SCHEMA = {
+    type: 'object',
+    description: 'Summary of the current scene state',
+    additionalProperties: false,
+    properties: {
+        topic: {
+            type: 'string',
+            description: '3-5 words describing the main topic(s) of the current interaction'
+        },
+        tone: {
+            type: 'string',
+            description: 'Dominant emotional tone of the scene (2-3 words)'
+        },
+        tension: {
+            type: 'object',
+            description: 'Current tension level in the scene',
+            additionalProperties: false,
+            properties: {
+                level: {
+                    type: 'string',
+                    enum: ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'],
+                    description: 'The level of tension in the current scene. This should not remain the same for too long.'
+                },
+                direction: {
+                    type: 'string',
+                    enum: ['escalating', 'stable', 'decreasing'],
+                    description: 'Set based on comparison with previous level - will be recalculated'
+                },
+                type: {
+                    type: 'string',
+                    enum: ['confrontation', 'intimate', 'vulnerable', 'celebratory', 'negotiation', 'suspense', 'conversation']
+                }
+            },
+            required: ['level', 'direction', 'type']
+        },
+        recentEvents: {
+            type: 'array',
+            description: 'List of significant recent events (max 5). Prune resolved/superseded events, keep most salient.',
+            items: {
+                type: 'string',
+                description: 'A significant event affecting the scene'
+            },
+            minItems: 1,
+            maxItems: 5
+        }
+    },
+    required: ['topic', 'tone', 'tension', 'recentEvents']
+};
+const SCENE_EXAMPLE = JSON.stringify({
+    topic: "Marcus's heist plans",
+    tone: 'Hushed, secretive',
+    tension: {
+        level: 'tense',
+        direction: 'escalating',
+        type: 'negotiation'
+    },
+    recentEvents: [
+        "Marcus invited Elena and Sarah to discuss a jewellery heist",
+        "Marcus discovered that Sarah has stolen a rare painting"
+    ]
+}, null, 2);
+// ============================================
+// Prompts
+// ============================================
+const SCENE_INITIAL_PROMPT = `Analyze this roleplay scene and extract the scene state. You must only return valid JSON with no commentary.
+
+<instructions>
+<general>
+- Determine the topic, tone, tension, and significant events of the scene.
+- Topic should be 3-5 words summarizing the main focus.
+- Tone should be 2-3 words capturing the emotional atmosphere.
+</general>
+<tension>
+- Level indicates how charged the scene is emotionally/dramatically. It can go up as well as down.
+- Type categorizes what kind of tension: confrontation, intimate, negotiation, etc.
+- Direction will be calculated automatically, but set your best guess.
+- Make sure to update this when necessary.
+- Scenes should not remain the same tension level for too long.
+<levels>
+- relaxed means that there is very little tension in the scene, it is cozy, like post-coital cuddles or relaxing and watching TV
+- aware means that there is some tension, in an intimate scene this could be some glancing, in a confrontation, minor disagreement
+- guarded means that there is a little more tension, in an intimate scene this could be playful teasing, in a vulnerable scene it could be internal tension like characters wondering what to say and what not to say
+- tense means that the scene is approaching a breaking point, it will either escalate into something higher or de-escalate, it shouldn't stay at this level for long
+- charged means that the tension is obvious, in an intimate scene this could lead to kisses or sex, in a celebratory scene, a big reveal or someone overdoing it at the bar
+- volatile means that the tension is about to go over the edge, in a confrontation this could be a fight, in an intimate scene this is leading to something big
+- explosive is the highest level of tension, a fight, the moment before sex, just before a major decision, then it will almost always de-escalate
+</levels>
+</tension>
+<recent_events>
+- Include significant events that affect the ongoing narrative.
+- Events should be consequential: discoveries, relationship changes, injuries, commitments.
+- Maximum 5 events, prioritize the most important ones.
+</recent_events>
+</instructions>
+
+<character_info>
+{{characterInfo}}
+</character_info>
+
+<characters_present>
+{{charactersSummary}}
+</characters_present>
+
+<scene_messages>
+{{messages}}
+</scene_messages>
+
+<schema>
+${JSON.stringify(SCENE_SCHEMA, null, 2)}
+</schema>
+
+<output_example>
+${SCENE_EXAMPLE}
+</output_example>
+
+Extract the scene state as valid JSON:`;
+const SCENE_UPDATE_PROMPT = `Analyze these roleplay messages and update the scene state. You must only return valid JSON with no commentary.
+
+<instructions>
+<general>
+- Update topic if the focus has shifted.
+- Update tone if the emotional atmosphere has changed.
+- Consider whether tension has increased, decreased, or remained stable.
+</general>
+<tension>
+- Adjust level based on what happened in the messages.
+- Type may change: a negotiation could become a confrontation.
+- Level should be recalculated, the previous_scene should not be assumed to be right.
+- Direction will be recalculated based on level change.
+</tension>
+<recent_events>
+- Keep events that are still relevant to the ongoing scene.
+- Remove events that have been resolved or superseded.
+- Add new significant events from the recent messages.
+- Maximum 5 events - prune aggressively, keep most salient.
+- Even if previous_scene has more than 5 events, return at most 5.
+</recent_events>
+</instructions>
+
+<characters_present>
+{{charactersSummary}}
+</characters_present>
+
+<previous_scene>
+{{previousScene}}
+</previous_scene>
+
+<recent_messages>
+{{messages}}
+</recent_messages>
+
+<schema>
+${JSON.stringify(SCENE_SCHEMA, null, 2)}
+</schema>
+
+<output_example>
+${SCENE_EXAMPLE}
+</output_example>
+
+Extract the updated scene state as valid JSON:`;
+// ============================================
+// Public API
+// ============================================
+async function extractScene(isInitial, messages, characters, characterInfo, previousScene, abortSignal) {
+    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
+    // Create a brief summary of characters for context
+    const charactersSummary = characters
+        .map(c => `${c.name}: ${c.mood.join(', ')} - ${c.activity || c.position}`)
+        .join('\n');
+    let prompt;
+    if (isInitial) {
+        prompt = SCENE_INITIAL_PROMPT
+            .replace('{{characterInfo}}', characterInfo)
+            .replace('{{charactersSummary}}', charactersSummary)
+            .replace('{{messages}}', messages);
+    }
+    else {
+        prompt = SCENE_UPDATE_PROMPT
+            .replace('{{charactersSummary}}', charactersSummary)
+            .replace('{{previousScene}}', JSON.stringify(previousScene, null, 2))
+            .replace('{{messages}}', messages);
+    }
+    const llmMessages = [
+        { role: 'system', content: 'You are a scene analysis agent for roleplay. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+    ];
+    const response = await makeGeneratorRequest(llmMessages, settings.profileId, settings.maxResponseTokens, abortSignal);
+    const scene = validateScene(parseJsonResponse(response));
+    // Recalculate tension direction based on previous state
+    scene.tension.direction = (0,_utils_tension__WEBPACK_IMPORTED_MODULE_2__.calculateTensionDirection)(scene.tension.level, previousScene?.tension?.level);
+    return scene;
+}
+/**
+ * Determine if scene extraction should run for this message.
+ * Returns true if this is an assistant message (every 2nd message).
+ */
+function shouldExtractScene(messageId, isAssistantMessage, isInitial) {
+    // Only extract scene after assistant responses
+    return isAssistantMessage || isInitial;
+}
+// ============================================
+// Internal: LLM Communication
+// ============================================
+function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
+    return new Promise((resolve, reject) => {
+        if (abortSignal?.aborted) {
+            return reject(new DOMException('Aborted', 'AbortError'));
+        }
+        const abortController = new AbortController();
+        if (abortSignal) {
+            abortSignal.addEventListener('abort', () => abortController.abort());
+        }
+        generator.generateRequest({
+            profileId,
+            prompt: messages,
+            maxTokens,
+            custom: { signal: abortController.signal },
+            overridePayload: {
+                temperature: 0.6,
+            }
+        }, {
+            abortController,
+            onFinish: (requestId, data, error) => {
+                if (error) {
+                    return reject(error);
+                }
+                if (!data) {
+                    return reject(new DOMException('Request aborted', 'AbortError'));
+                }
+                const content = data.content;
+                if (typeof content === 'string') {
+                    resolve(content);
+                }
+                else {
+                    resolve(JSON.stringify(content));
+                }
+            },
+        });
+    });
+}
+// ============================================
+// Internal: Response Parsing
+// ============================================
+function parseJsonResponse(response) {
+    let jsonStr = response.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+    }
+    const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+        jsonStr = objectMatch[0];
+    }
+    try {
+        return JSON.parse(jsonStr);
+    }
+    catch (e) {
+        console.error('[BlazeTracker/Scene] Failed to parse response:', e);
+        console.error('[BlazeTracker/Scene] Response was:', response);
+        throw new Error('Failed to parse scene extraction response as JSON');
+    }
+}
+const VALID_TENSION_LEVELS = ['relaxed', 'aware', 'guarded', 'tense', 'charged', 'volatile', 'explosive'];
+const VALID_TENSION_DIRECTIONS = ['escalating', 'stable', 'decreasing'];
+const VALID_TENSION_TYPES = ['confrontation', 'intimate', 'vulnerable', 'celebratory', 'negotiation', 'suspense', 'conversation'];
+function validateScene(data) {
+    if (!data.topic || typeof data.topic !== 'string') {
+        throw new Error('Invalid scene: missing topic');
+    }
+    // Validate tension
+    const tension = data.tension || {};
+    const level = VALID_TENSION_LEVELS.includes(tension.level) ? tension.level : 'relaxed';
+    const direction = VALID_TENSION_DIRECTIONS.includes(tension.direction) ? tension.direction : 'stable';
+    const type = VALID_TENSION_TYPES.includes(tension.type) ? tension.type : 'conversation';
+    // Validate recent events
+    let recentEvents = Array.isArray(data.recentEvents) ? data.recentEvents : [];
+    recentEvents = recentEvents
+        .filter((e) => typeof e === 'string' && e.length > 0)
+        .slice(0, 5);
+    if (recentEvents.length === 0) {
+        recentEvents = ['Scene in progress'];
+    }
+    return {
+        topic: data.topic,
+        tone: typeof data.tone === 'string' ? data.tone : 'neutral',
+        tension: { level, direction, type },
+        recentEvents,
+    };
+}
+
+
+/***/ },
+
+/***/ "./src/extractors/extractState.ts"
+/*!****************************************!*\
+  !*** ./src/extractors/extractState.ts ***!
+  \****************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   abortCurrentExtraction: () => (/* binding */ abortCurrentExtraction),
+/* harmony export */   extractState: () => (/* binding */ extractState),
+/* harmony export */   setupExtractionAbortHandler: () => (/* binding */ setupExtractionAbortHandler)
+/* harmony export */ });
+/* harmony import */ var _ui_settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../ui/settings */ "./src/ui/settings.ts");
+/* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
+/* harmony import */ var _extractTime__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./extractTime */ "./src/extractors/extractTime.ts");
+/* harmony import */ var _extractLocation__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./extractLocation */ "./src/extractors/extractLocation.ts");
+/* harmony import */ var _extractClimate__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./extractClimate */ "./src/extractors/extractClimate.ts");
+/* harmony import */ var _extractCharacters__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./extractCharacters */ "./src/extractors/extractCharacters.ts");
+/* harmony import */ var _extractScene__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./extractScene */ "./src/extractors/extractScene.ts");
+/* harmony import */ var _extractionProgress__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./extractionProgress */ "./src/extractors/extractionProgress.ts");
+
+
+// Import extractors
+
+
+
+
+
+
+// ============================================
+// Module State
+// ============================================
+let currentAbortController = null;
+let extractionCount = 0;
+// ============================================
+// Send Button State Management
+// ============================================
+function setSendButtonState(isGenerating) {
+    const context = SillyTavern.getContext();
+    if (isGenerating) {
+        context.deactivateSendButtons();
+    }
+    else {
+        context.activateSendButtons();
+    }
+}
+// ============================================
+// Abort Handling
+// ============================================
+function setupExtractionAbortHandler() {
+    const context = SillyTavern.getContext();
+    context.eventSource.on(context.event_types.GENERATION_STOPPED, (() => {
+        if (currentAbortController) {
+            console.log('[BlazeTracker] Generation stopped, aborting extraction');
+            currentAbortController.abort();
+            currentAbortController = null;
+        }
+    }));
+}
+function abortCurrentExtraction() {
+    if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+    }
+}
+// ============================================
+// Main Extraction Orchestrator
+// ============================================
+async function extractState(context, messageId, previousState, abortSignal, options = {}) {
+    const settings = (0,_ui_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+    if (!settings.profileId) {
+        throw new Error('No connection profile selected. Please configure BlazeTracker in extension settings.');
+    }
+    // Create and register abort controller
+    const abortController = new AbortController();
+    currentAbortController = abortController;
+    // Link external abort signal if provided
+    if (abortSignal) {
+        abortSignal.addEventListener('abort', () => abortController.abort());
+    }
+    // Track active extractions for button state
+    extractionCount++;
+    if (extractionCount === 1) {
+        setSendButtonState(true);
+    }
+    const rawResponses = {};
+    try {
+        const { lastXMessages } = settings;
+        const isInitial = previousState === null;
+        // Determine if this is an assistant message (for scene extraction)
+        const currentMessage = context.chat[messageId];
+        const isAssistantMessage = currentMessage?.is_user === false;
+        const shouldRunScene = options.forceSceneExtraction ||
+            (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.shouldExtractScene)(messageId, isAssistantMessage, isInitial);
+        // ========================================
+        // STEP 0: Initialize time tracker from previous state
+        // ========================================
+        if (previousState?.time) {
+            (0,_extractTime__WEBPACK_IMPORTED_MODULE_2__.setTimeTrackerState)(previousState.time);
+        }
+        // ========================================
+        // Get message window for extraction
+        // ========================================
+        const { formattedMessages, characterInfo, userInfo } = prepareExtractionContext(context, messageId, lastXMessages, previousState);
+        // ========================================
+        // STEP 1: Extract Time
+        // ========================================
+        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('time', shouldRunScene);
+        let narrativeTime = previousState?.time ?? getDefaultTime();
+        if (settings.trackTime !== false) {
+            narrativeTime = await (0,_extractTime__WEBPACK_IMPORTED_MODULE_2__.extractTime)(!isInitial, formattedMessages, abortController.signal);
+        }
+        // ========================================
+        // STEP 2: Extract Location
+        // ========================================
+        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('location', shouldRunScene);
+        const location = await (0,_extractLocation__WEBPACK_IMPORTED_MODULE_3__.extractLocation)(isInitial, formattedMessages, isInitial ? characterInfo : '', previousState?.location ?? null, abortController.signal);
+        // ========================================
+        // STEP 3: Extract Climate
+        // ========================================
+        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('climate', shouldRunScene);
+        const climate = await (0,_extractClimate__WEBPACK_IMPORTED_MODULE_4__.extractClimate)(isInitial, formattedMessages, narrativeTime, location, isInitial ? characterInfo : '', previousState?.climate ?? null, abortController.signal);
+        // ========================================
+        // STEP 4: Extract Characters
+        // ========================================
+        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('characters', shouldRunScene);
+        const characters = await (0,_extractCharacters__WEBPACK_IMPORTED_MODULE_5__.extractCharacters)(isInitial, formattedMessages, location, isInitial ? userInfo : '', isInitial ? characterInfo : '', previousState?.characters ?? null, abortController.signal);
+        // ========================================
+        // STEP 5: Extract Scene (conditional)
+        // ========================================
+        let scene;
+        if (shouldRunScene) {
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('scene', shouldRunScene);
+            // Scene needs at least 2 messages for tension analysis (both sides of conversation)
+            const sceneMessages = formatMessagesForScene(context, messageId, lastXMessages, previousState);
+            scene = await (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.extractScene)(isInitial, sceneMessages, characters, isInitial ? characterInfo : '', previousState?.scene ?? null, abortController.signal);
+        }
+        else {
+            // Carry forward previous scene or create default
+            scene = previousState?.scene ?? getDefaultScene();
+        }
+        // ========================================
+        // STEP 6: Assemble Final State
+        // ========================================
+        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('complete', shouldRunScene);
+        const state = {
+            time: narrativeTime,
+            location,
+            climate,
+            scene,
+            characters,
+        };
+        return { state, raw: rawResponses };
+    }
+    finally {
+        extractionCount--;
+        if (extractionCount === 0) {
+            setSendButtonState(false);
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_7__.setExtractionStep)('idle', true);
+        }
+        if (currentAbortController === abortController) {
+            currentAbortController = null;
         }
     }
-    // Remove time if the LLM included it anyway (we don't want it)
-    if ('time' in data) {
-        delete data.time;
+}
+/**
+ * Format messages for scene extraction with a minimum of 2 messages.
+ * This ensures we have both sides of the conversation for tension analysis.
+ */
+function formatMessagesForScene(context, messageId, lastXMessages, previousState) {
+    const MIN_SCENE_MESSAGES = 2;
+    // Find where previous state was stored
+    let stateIdx = -1;
+    if (previousState) {
+        for (let i = messageId - 1; i >= 0; i--) {
+            const msg = context.chat[i];
+            const stored = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_1__.getMessageState)(msg);
+            if (stored?.state) {
+                stateIdx = i;
+                break;
+            }
+        }
     }
-    return data;
+    // Calculate start: we want at least MIN_SCENE_MESSAGES, but also respect lastXMessages
+    // and include all messages since last state
+    const minStart = Math.max(0, messageId - MIN_SCENE_MESSAGES + 1);
+    const stateStart = stateIdx >= 0 ? stateIdx + 1 : 0;
+    const limitStart = messageId - lastXMessages;
+    // Take the earliest of: minimum messages needed, or messages since state
+    // But don't go earlier than lastXMessages limit
+    const effectiveStart = Math.max(limitStart, Math.min(minStart, stateStart));
+    const chatMessages = context.chat.slice(effectiveStart, messageId + 1);
+    return chatMessages
+        .map((msg) => `${msg.name}: ${msg.mes}`)
+        .join('\n\n');
+}
+function prepareExtractionContext(context, messageId, lastXMessages, previousState) {
+    // Find where to start reading messages
+    let startIdx = 0;
+    if (previousState) {
+        for (let i = messageId - 1; i >= 0; i--) {
+            const msg = context.chat[i];
+            const stored = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_1__.getMessageState)(msg);
+            if (stored?.state) {
+                startIdx = i + 1; // Start from message AFTER the one with state
+                break;
+            }
+        }
+    }
+    // Get only new messages (but respect lastXMessages limit)
+    const effectiveStart = Math.max(startIdx, messageId - lastXMessages);
+    const chatMessages = context.chat.slice(effectiveStart, messageId + 1);
+    // Format messages for prompts
+    const formattedMessages = chatMessages
+        .map((msg) => `${msg.name}: ${msg.mes}`)
+        .join('\n\n');
+    // Get user persona info
+    const userPersona = context.powerUserSettings?.persona_description || '';
+    const userInfo = userPersona
+        ? `Name: ${context.name1}\nDescription: ${userPersona
+            .replace(/\{\{user\}\}/gi, context.name1)
+            .replace(/\{\{char\}\}/gi, context.name2)}`
+        : `Name: ${context.name1}`;
+    // Get character info
+    const character = context.characters?.[context.characterId];
+    const charDescription = (character?.description || 'No description')
+        .replace(/\{\{char\}\}/gi, context.name2)
+        .replace(/\{\{user\}\}/gi, context.name1);
+    const characterInfo = `Name: ${context.name2}\nDescription: ${charDescription}`;
+    return { formattedMessages, characterInfo, userInfo };
+}
+function getDefaultTime() {
+    return {
+        year: new Date().getFullYear(),
+        month: 6,
+        day: 15,
+        hour: 12,
+        minute: 0,
+        second: 0,
+        dayOfWeek: 'Monday',
+    };
+}
+function getDefaultScene() {
+    return {
+        topic: 'Scene in progress',
+        tone: 'neutral',
+        tension: {
+            level: 'relaxed',
+            direction: 'stable',
+            type: 'conversation',
+        },
+        recentEvents: ['Scene beginning'],
+    };
 }
 
 
@@ -38309,15 +39330,15 @@ const DELTA_SCHEMA = {
     type: 'object',
     properties: {
         hours: { type: 'number', description: 'Hours passed. 0 if less than an hour.' },
-        minutes: { type: 'number', description: 'Minutes passed (0-59). Added to hours.' },
-        seconds: { type: 'number', description: 'Seconds passed (0-59). Usually 0 unless specifically mentioned.' },
+        minutes: { type: 'number', description: 'Minutes passed (0-59).' },
+        seconds: { type: 'number', description: 'Seconds passed (0-59).' },
     },
     required: ['hours', 'minutes', 'seconds'],
 };
 const DELTA_EXAMPLE = JSON.stringify({
     hours: 0,
-    minutes: 5,
-    seconds: 0,
+    minutes: 2,
+    seconds: 30,
 }, null, 2);
 // ============================================
 // Prompts
@@ -38351,17 +39372,20 @@ Extract the narrative date and time as valid JSON:`;
 const DELTA_PROMPT = `Analyze these roleplay messages and determine how much narrative time has passed. You must only return valid JSON with no commentary.
 
 <instructions>
-- Determine how much time passes WITHIN this message.
+- Determine how much time passes WITHIN these messages based on their actual content.
+- The example output below is just showing the JSON format - do NOT copy its values.
 - Look for explicit time jumps: "an hour later", "after a few minutes", "the next morning".
 - Look for implicit time passage: travel, sleeping, waiting, activities with known durations.
-- If the message is just dialogue or immediate action with no time skip, return all zeros.
-- Conversations without time skips: 1-2 minutes typically.
-- Walking somewhere nearby: 5-15 minutes.
-- Napping: 1-3 hours typically but consider currentTime.
-- Sleeping: 6-10 hours typically but dependent on currentTime.
-- "A few minutes": 3-5 minutes.
-- "A while": 15-30 minutes.
-- "Some time": 30-60 minutes.
+- If the messages are just dialogue or immediate action with no time skip, return small values (0-2 minutes).
+- Estimate based on what actually happens in the messages:
+  * Pure dialogue exchange: 1-2 minutes
+  * Walking somewhere nearby: 5-15 minutes
+  * Driving across town: 15-45 minutes
+  * Napping: 1-3 hours (consider currentTime)
+  * Sleeping overnight: 6-10 hours (consider currentTime)
+  * "A few minutes": 3-5 minutes
+  * "A while": 15-30 minutes
+  * "Some time": 30-60 minutes
 - Be conservative - if unsure, prefer smaller time jumps.
 </instructions>
 
@@ -38369,19 +39393,19 @@ const DELTA_PROMPT = `Analyze these roleplay messages and determine how much nar
 {{currentTime}}
 </current_time>
 
-<message>
+<messages>
 {{message}}
-</message>
+</messages>
 
 <schema>
 ${JSON.stringify(DELTA_SCHEMA, null, 2)}
 </schema>
 
-<output_example>
+<output_format_example>
 ${DELTA_EXAMPLE}
-</output_example>
+</output_format_example>
 
-Extract the time delta as valid JSON:`;
+Based on the actual content of the messages above, extract the time delta as valid JSON:`;
 // ============================================
 // Time Tracker State (module-level singleton)
 // ============================================
@@ -38616,6 +39640,87 @@ function validateDelta(data) {
 }
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+}
+
+
+/***/ },
+
+/***/ "./src/extractors/extractionProgress.ts"
+/*!**********************************************!*\
+  !*** ./src/extractors/extractionProgress.ts ***!
+  \**********************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   getExtractionStep: () => (/* binding */ getExtractionStep),
+/* harmony export */   getStepLabel: () => (/* binding */ getStepLabel),
+/* harmony export */   onExtractionProgress: () => (/* binding */ onExtractionProgress),
+/* harmony export */   setExtractionStep: () => (/* binding */ setExtractionStep)
+/* harmony export */ });
+// ============================================
+// Extraction Progress Tracking
+// ============================================
+// ============================================
+// Module State
+// ============================================
+let currentStep = 'idle';
+let progressCallback = null;
+// Steps in order (scene is optional, handled separately)
+const EXTRACTION_STEPS = [
+    'time',
+    'location',
+    'climate',
+    'characters',
+    'scene',
+];
+// ============================================
+// Public API
+// ============================================
+/**
+ * Register a callback to receive progress updates.
+ */
+function onExtractionProgress(callback) {
+    progressCallback = callback;
+}
+/**
+ * Set the current extraction step and notify listeners.
+ */
+function setExtractionStep(step, includeScene = true) {
+    currentStep = step;
+    if (progressCallback) {
+        const steps = includeScene
+            ? EXTRACTION_STEPS
+            : EXTRACTION_STEPS.filter(s => s !== 'scene');
+        const stepIndex = step === 'idle' ? 0
+            : step === 'complete' ? steps.length
+                : steps.indexOf(step);
+        progressCallback({
+            step,
+            stepIndex: Math.max(0, stepIndex),
+            totalSteps: steps.length,
+        });
+    }
+}
+/**
+ * Get the current extraction step.
+ */
+function getExtractionStep() {
+    return currentStep;
+}
+/**
+ * Get a human-readable label for a step.
+ */
+function getStepLabel(step) {
+    switch (step) {
+        case 'idle': return 'Ready';
+        case 'time': return 'Extracting time...';
+        case 'location': return 'Extracting location...';
+        case 'climate': return 'Extracting climate...';
+        case 'characters': return 'Extracting characters...';
+        case 'scene': return 'Extracting scene...';
+        case 'complete': return 'Complete';
+    }
 }
 
 
@@ -38964,351 +40069,6 @@ const settingsManager = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.E
 
 /***/ },
 
-/***/ "./src/types/state.ts"
-/*!****************************!*\
-  !*** ./src/types/state.ts ***!
-  \****************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   EXTRACTION_SCHEMA: () => (/* binding */ EXTRACTION_SCHEMA),
-/* harmony export */   getSchemaExample: () => (/* binding */ getSchemaExample),
-/* harmony export */   schemaToExample: () => (/* binding */ schemaToExample)
-/* harmony export */ });
-// ============================================
-// Runtime State Types
-// ============================================
-// ============================================
-// JSON Schema for LLM Extraction
-// (Note: time is NOT included - it's extracted separately)
-// ============================================
-const EXTRACTION_SCHEMA = {
-    type: "object",
-    description: "Schema representing current state of the roleplay scenario (excluding time, which is tracked separately)",
-    additionalProperties: false,
-    properties: {
-        location: {
-            type: "object",
-            properties: {
-                area: {
-                    type: "string",
-                    description: "General area: city, district, or region (e.g. 'The Glossy Mountains', 'Sherwood Forest', 'London')"
-                },
-                place: {
-                    type: "string",
-                    description: "Specific place: building, establishment, room (e.g. 'The Rusty Nail bar', 'Elena's bedroom', 'Industrial Estate Parking Lot')"
-                },
-                position: {
-                    type: "string",
-                    description: "Position within place, i.e. a room or local landmark, do not mention characters/objects or the scene's actions, this is purely a location (e.g. 'By the dumpster', 'The corner booth', 'In the jacuzzi', 'Near the door to the bathroom')"
-                },
-                props: {
-                    type: "array",
-                    description: "Array of nearby items which affect the scene, add details where relevant i.e. instead of 'TV', write 'TV - showing a western'",
-                    items: {
-                        type: "string",
-                        description: "a nearby item which is part of the scene, detailed"
-                    },
-                    maxItems: 10
-                }
-            },
-            required: ["area", "place", "position", "props"]
-        },
-        climate: {
-            type: "object",
-            description: "The current climate",
-            additionalProperties: false,
-            properties: {
-                weather: {
-                    type: "string",
-                    enum: ["sunny", "cloudy", "snowy", "rainy", "windy", "thunderstorm"],
-                    description: "The current weather in the locale (if the characters are indoors, give the weather outdoors)"
-                },
-                temperature: {
-                    type: "number",
-                    description: "The current temperature, in Fahrenheit (note: if characters are indoors, give the indoor temperature)"
-                }
-            },
-            required: ["weather", "temperature"]
-        },
-        scene: {
-            type: "object",
-            description: "A summary of the current scene and its purpose",
-            additionalProperties: false,
-            properties: {
-                topic: {
-                    type: "string",
-                    description: "3-5 words describing the main topic(s) of the current interaction"
-                },
-                tone: {
-                    type: "string",
-                    description: "Dominant emotional tone of the scene (2-3 words)"
-                },
-                tension: {
-                    type: "object",
-                    description: "The current level of tension in the scene",
-                    additionalProperties: false,
-                    properties: {
-                        level: {
-                            type: "string",
-                            enum: ["relaxed", "aware", "guarded", "tense", "charged", "volatile", "explosive"]
-                        },
-                        direction: {
-                            type: "string",
-                            enum: ["escalating", "stable", "decreasing"]
-                        },
-                        type: {
-                            type: "string",
-                            enum: ["confrontation", "intimate", "vulnerable", "celebratory", "negotiation", "suspense", "conversation"]
-                        }
-                    },
-                    required: ["level", "direction", "type"]
-                },
-                recentEvents: {
-                    type: "array",
-                    description: "List of significant events, max 5, prune resolved/superceded, keep most salient",
-                    items: {
-                        type: "string",
-                        description: "A description of the event, only include significant events"
-                    },
-                    minItems: 1,
-                    maxItems: 5
-                }
-            },
-            required: ["topic", "tone", "tension", "recentEvents"]
-        },
-        characters: {
-            type: "array",
-            description: "All characters present in the current scene",
-            items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                    name: {
-                        type: "string",
-                        description: "Character's name as used in the scene"
-                    },
-                    goals: {
-                        type: "array",
-                        description: "A list of the character's short-term goals",
-                        items: {
-                            type: "string",
-                            description: "An individual short-term goal"
-                        }
-                    },
-                    position: {
-                        type: "string",
-                        description: "Physical position: sitting, standing, lying down, and where (e.g. 'sitting at the bar', 'leaning against the wall'). This should be detailed, who is the character facing, are they interacting with another character?"
-                    },
-                    activity: {
-                        type: "string",
-                        description: "Current activity if any (e.g. 'nursing a whiskey', 'texting on phone')"
-                    },
-                    mood: {
-                        type: "array",
-                        description: "Current emotional states",
-                        minItems: 1,
-                        maxItems: 5,
-                        items: {
-                            type: "string",
-                            description: "An emotional state (e.g. 'nervous', 'excited', 'guarded')"
-                        }
-                    },
-                    physicalState: {
-                        type: "array",
-                        description: "Physical conditions affecting the character",
-                        maxItems: 5,
-                        items: {
-                            type: "string",
-                            description: "A physical state (e.g. 'drunk', 'tired', 'injured', 'hyped')"
-                        }
-                    },
-                    outfit: {
-                        type: "object",
-                        description: "Notable clothing items currently worn (include all items, including undergarments, make reasonable assumptions but be detailed), if any items are not worn, return null. If an item of clothing has been removed as part of the scene, return null for that item, if a species would not wear clothes (i.e. pony, animal, Pokémon, return null for all items unless explicitly specified).",
-                        properties: {
-                            head: {
-                                type: ["string", "null"],
-                                description: "Any headwear that the character is wearing (null if no headwear worn, or removed)"
-                            },
-                            jacket: {
-                                type: ["string", "null"],
-                                description: "If the character is wearing a second layer (null if not applicable, or removed)"
-                            },
-                            torso: {
-                                type: ["string", "null"],
-                                description: "What the character is wearing on their torso (shirt/t-shirt/vest/etc) (null if not worn, or removed)"
-                            },
-                            legs: {
-                                type: ["string", "null"],
-                                description: "What the character is wearing on their legs (cargo pants/jeans/etc) (null if not worn, or removed)"
-                            },
-                            underwear: {
-                                type: ["string", "null"],
-                                description: "What underwear the character is wearing (null if not worn, or removed). If partially removed, be descriptive: 'white panties (pulled aside)'"
-                            },
-                            socks: {
-                                type: ["string", "null"],
-                                description: "What socks the character is wearing (sports socks, thigh highs, leggings) (null if not worn, or removed). Be specific, if the character only has one sock left on, write i.e. 'black sock (left foot)'"
-                            },
-                            footwear: {
-                                type: ["string", "null"],
-                                description: "What footwear the character is wearing (shoes, boots, etc) (null if not worn, or removed). Be specific, if the character only has one shoe left on, write i.e. 'brown leather shoe (left foot)'"
-                            },
-                        },
-                        required: ["head", "jacket", "torso", "legs", "underwear", "socks", "footwear"]
-                    },
-                    dispositions: {
-                        type: "object",
-                        description: "Current feelings toward other characters in the scene (if a character does not know another character exists, do not include an array for that character). Remember to remove as well as add dispositions where appropriate.",
-                        additionalProperties: {
-                            type: "array",
-                            maxItems: 5,
-                            items: {
-                                type: "string",
-                                description: "A feeling toward that character (e.g. 'suspicious', 'attracted')"
-                            }
-                        }
-                    }
-                },
-                required: ["name", "position", "activity", "mood", "physicalState", "outfit", "dispositions"]
-            }
-        }
-    },
-    required: ["location", "climate", "scene", "characters"]
-};
-// ============================================
-// Schema to Example (for prompt engineering)
-// ============================================
-function schemaToExample(schema) {
-    if (schema.example) {
-        return schema.example;
-    }
-    switch (schema.type) {
-        case 'object':
-            const obj = {};
-            if (schema.properties) {
-                for (const key in schema.properties) {
-                    obj[key] = schemaToExample(schema.properties[key]);
-                }
-            }
-            if (schema.additionalProperties) {
-                obj['<character_name>'] = schemaToExample(schema.additionalProperties);
-            }
-            return obj;
-        case 'array':
-            if (schema.items) {
-                return [schemaToExample(schema.items)];
-            }
-            return [];
-        case 'string':
-            return schema.description || 'string';
-        case 'number':
-            return schema.description || 0;
-        case 'boolean':
-            return false;
-        default:
-            return null;
-    }
-}
-// Note: Example does NOT include time - it's merged in after extraction
-function getSchemaExample() {
-    return JSON.stringify({
-        location: {
-            area: "Downtown Seattle",
-            place: "The Rusty Nail bar",
-            position: "Corner booth near the jukebox",
-            props: ["Jukebox", "Sauces", "Elena's Fish", "Marcus's Steak", "Wine"]
-        },
-        climate: {
-            weather: "rainy",
-            temperature: 52
-        },
-        scene: {
-            topic: "Marcus's heist plans",
-            tone: "Hushed, secretive",
-            tension: {
-                level: "tense",
-                direction: "escalating",
-                type: "negotiation"
-            },
-            recentEvents: [
-                "Marcus invited Elena and Sarah to discuss a jewellery heist in his Speakeasy",
-                "Marcus discovered that Sarah has stolen a rare painting"
-            ]
-        },
-        characters: [
-            {
-                name: "Elena",
-                position: "Sitting in the booth, facing the entrance, hands wrapped around a coffee mug",
-                activity: "Watching the door nervously",
-                mood: ["anxious", "hopeful"],
-                goals: ["work out what Marcus is planning", "protect Sarah"],
-                physicalState: ["tired"],
-                outfit: {
-                    head: null,
-                    jacket: null,
-                    torso: "Dark red blouse",
-                    legs: "Black jeans",
-                    underwear: "Black lace bra and matching panties",
-                    socks: "Black tights",
-                    footwear: "Black ankle boots"
-                },
-                dispositions: {
-                    "Marcus": ["suspicious", "curious"],
-                    "Sarah": ["trusting", "protective"]
-                }
-            },
-            {
-                name: "Marcus",
-                position: "Sitting in the booth, facing Sarah, drinking a glass of wine",
-                activity: "Trying to read Sarah's expression",
-                mood: ["scheming", "bargaining"],
-                goals: ["convince Sarah to help with his heist", "get Elena on-side"],
-                physicalState: ["alert", "confident"],
-                outfit: {
-                    head: "Bowler hat",
-                    jacket: "Pinstripe jacket",
-                    torso: "White silk shirt",
-                    legs: "Dress pants",
-                    underwear: "White boxer briefs",
-                    socks: "Black dress socks",
-                    footwear: "Black shoes"
-                },
-                dispositions: {
-                    "Elena": ["dubious", "manipulative"],
-                    "Sarah": ["hopeful", "analytical"]
-                }
-            },
-            {
-                name: "Sarah",
-                position: "Sitting in the booth, facing Marcus, drinking a glass of wine",
-                activity: "Listening to Marcus's proposal",
-                mood: ["thoughtful", "concerned"],
-                goals: ["determine whether she should join Marcus's plans", "get Elena's opinions"],
-                physicalState: ["relaxed", "shy"],
-                outfit: {
-                    head: null,
-                    jacket: null,
-                    torso: "Blue velvet dress",
-                    legs: null,
-                    underwear: "Yellow bra and panties",
-                    socks: "White thigh-high socks with red ribbons",
-                    footwear: "Blue knee-high fashionable boots"
-                },
-                dispositions: {
-                    "Elena": ["trusting", "submissive"],
-                    "Marcus": ["concerned", "dubious"]
-                }
-            }
-        ]
-    }, null, 2);
-}
-
-
-/***/ },
-
 /***/ "./src/ui/settings.ts"
 /*!****************************!*\
   !*** ./src/ui/settings.ts ***!
@@ -39622,14 +40382,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var react_dom_client__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! react-dom/client */ "./node_modules/react-dom/client.js");
 /* harmony import */ var sillytavern_utils_lib_config__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! sillytavern-utils-lib/config */ "./node_modules/sillytavern-utils-lib/dist/config.js");
 /* harmony import */ var _extractors_extractState__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../extractors/extractState */ "./src/extractors/extractState.ts");
-/* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
-/* harmony import */ var _stateEditor__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./stateEditor */ "./src/ui/stateEditor.tsx");
-/* harmony import */ var _injectors_injectState__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../injectors/injectState */ "./src/injectors/injectState.ts");
-/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./settings */ "./src/ui/settings.ts");
-/* harmony import */ var _extractors_extractTime__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../extractors/extractTime */ "./src/extractors/extractTime.ts");
-/* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../constants */ "./src/constants.ts");
-/* harmony import */ var _utils_temperatures__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../utils/temperatures */ "./src/utils/temperatures.ts");
-/* harmony import */ var _utils_timeFormat__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ../utils/timeFormat */ "./src/utils/timeFormat.ts");
+/* harmony import */ var _extractors_extractionProgress__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../extractors/extractionProgress */ "./src/extractors/extractionProgress.ts");
+/* harmony import */ var _utils_messageState__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../utils/messageState */ "./src/utils/messageState.ts");
+/* harmony import */ var _stateEditor__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./stateEditor */ "./src/ui/stateEditor.tsx");
+/* harmony import */ var _injectors_injectState__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../injectors/injectState */ "./src/injectors/injectState.ts");
+/* harmony import */ var _settings__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./settings */ "./src/ui/settings.ts");
+/* harmony import */ var _extractors_extractTime__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../extractors/extractTime */ "./src/extractors/extractTime.ts");
+/* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../constants */ "./src/constants.ts");
+/* harmony import */ var _utils_temperatures__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ../utils/temperatures */ "./src/utils/temperatures.ts");
+/* harmony import */ var _utils_timeFormat__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ../utils/timeFormat */ "./src/utils/timeFormat.ts");
+
 
 
 
@@ -39678,9 +40440,12 @@ const WEATHER_ICONS = {
 const roots = new Map();
 // Track ongoing extractions - exported so index.ts can check
 const extractionInProgress = new Set();
+// Track current extraction step for UI updates
+let currentExtractionStep = 'idle';
+let currentExtractionMessageId = null;
 // --- Helper Functions ---
 function formatTime(time) {
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_7__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_8__.getSettings)();
     const MONTH_NAMES = [
         'January',
         'February',
@@ -39697,7 +40462,7 @@ function formatTime(time) {
     ];
     const month = MONTH_NAMES[time.month - 1];
     // "Mon, Jan 15, 14:30"
-    return `${time.dayOfWeek.slice(0, 3)}, ${month} ${time.day} ${time.year}, ${(0,_utils_timeFormat__WEBPACK_IMPORTED_MODULE_11__.applyTimeFormat)(time.hour, time.minute, settings.timeFormat)}`;
+    return `${time.dayOfWeek.slice(0, 3)}, ${month} ${time.day} ${time.year}, ${(0,_utils_timeFormat__WEBPACK_IMPORTED_MODULE_12__.applyTimeFormat)(time.hour, time.minute, settings.timeFormat)}`;
 }
 function formatLocation(location) {
     const parts = [location.position, location.place, location.area];
@@ -39727,7 +40492,7 @@ async function waitForMessageElement(messageId, maxWaitMs = 2000) {
         }
         await new Promise(resolve => setTimeout(resolve, 50));
     }
-    console.warn(`[${_constants__WEBPACK_IMPORTED_MODULE_9__.EXTENSION_NAME}] Timeout waiting for message element ${messageId}`);
+    console.warn(`[${_constants__WEBPACK_IMPORTED_MODULE_10__.EXTENSION_NAME}] Timeout waiting for message element ${messageId}`);
     return null;
 }
 function SceneDisplay({ scene }) {
@@ -39751,24 +40516,25 @@ function Character({ character }) {
     }
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-character", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: character.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-char-mood", children: mood })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-position", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-crosshairs", title: "Position" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: character.position })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-details", children: [character.goals && character.goals.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-row bt-char-goals", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-bullseye", title: "Goals" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: character.goals.join(', ') })] })), character.activity && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-row bt-char-activity", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-person-walking", title: "Activity" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: character.activity })] })), character.physicalState && character.physicalState.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-row bt-char-physical", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-heart-pulse", title: "Physical state" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: character.physicalState.join(', ') })] })), character.outfit && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-row bt-char-outfit", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-shirt", title: "Outfit" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: formatOutfit(character.outfit) })] }))] }), dispositions.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-char-dispositions", children: dispositions.map((d, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-arrow-right", title: `Feelings toward ${d.toward}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-disposition-target", children: [d.toward, ":"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-disposition-feelings", children: d.feelings.join(', ') })] }, idx))) }))] }));
 }
-function StateDisplay({ stateData, isExtracting }) {
+function StateDisplay({ stateData, isExtracting, extractionStep }) {
     // Show loading state while extracting
     if (isExtracting) {
-        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-state-container bt-extracting", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-loading-indicator", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-fire fa-beat-fade" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Extracting scene state..." })] }) }));
+        const stepLabel = extractionStep ? (0,_extractors_extractionProgress__WEBPACK_IMPORTED_MODULE_4__.getStepLabel)(extractionStep) : 'Extracting...';
+        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-state-container bt-extracting", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-loading-indicator", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-fire fa-beat-fade" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: stepLabel })] }) }));
     }
     if (!stateData) {
         return null;
     }
     const { state } = stateData;
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_7__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_8__.getSettings)();
     const showTime = settings.trackTime !== false;
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), " ", formatTime(state.time)] })), state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-climate", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid ${getWeatherIcon(state.climate.weather)}` }), state.climate.temperature !== undefined && ` ${(0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_10__.formatTemperature)(state.climate.temperature, settings.temperatureUnit)}`] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), " ", formatLocation(state.location)] })] }), state.scene && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SceneDisplay, { scene: state.scene }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details (", state.characters.length, " characters, ", state.location.props.length, " props)"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-props-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-props-header", children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-props", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: state.location.props.map((prop, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("li", { children: prop }, idx))) }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-characters", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(Character, { character: char }, `${char.name}-${idx}`))) })] })] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), " ", formatTime(state.time)] })), state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-climate", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid ${getWeatherIcon(state.climate.weather)}` }), state.climate.temperature !== undefined && ` ${(0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_11__.formatTemperature)(state.climate.temperature, settings.temperatureUnit)}`] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), " ", formatLocation(state.location)] })] }), state.scene && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SceneDisplay, { scene: state.scene }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details (", state.characters.length, " characters, ", state.location.props.length, " props)"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-props-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-props-header", children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-props", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: state.location.props.map((prop, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("li", { children: prop }, idx))) }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-characters", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(Character, { character: char }, `${char.name}-${idx}`))) })] })] }));
 }
 // --- State Extraction ---
 function getPreviousState(context, beforeMessageId) {
     for (let i = beforeMessageId - 1; i >= 0; i--) {
         const prev = context.chat[i];
-        const trackerData = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_4__.getMessageState)(prev);
+        const trackerData = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.getMessageState)(prev);
         if (trackerData?.state) {
             return trackerData.state;
         }
@@ -39782,18 +40548,19 @@ async function doExtractState(messageId) {
     const context = SillyTavern.getContext();
     const message = context.chat[messageId];
     if (!message) {
-        console.warn(`[${_constants__WEBPACK_IMPORTED_MODULE_9__.EXTENSION_NAME}] Message not found:`, messageId);
+        console.warn(`[${_constants__WEBPACK_IMPORTED_MODULE_10__.EXTENSION_NAME}] Message not found:`, messageId);
         return null;
     }
-    // Mark extraction in progress
+    // Mark extraction in progress and track which message
     extractionInProgress.add(messageId);
+    currentExtractionMessageId = messageId;
     // Try to show loading state (synchronous - DOM should be ready since we're called from
     // USER_MESSAGE_RENDERED or GENERATION_ENDED, not during streaming)
     const messageElement = document.querySelector(`[mesid="${messageId}"]`);
     const mesBlock = messageElement?.querySelector('.mes_block');
     if (messageElement && mesBlock) {
         updateMenuButtonState(messageId, true);
-        renderMessageStateInternal(messageId, messageElement, null, true);
+        renderMessageStateInternal(messageId, messageElement, null, true, currentExtractionStep);
     }
     const previousState = getPreviousState(context, messageId);
     try {
@@ -39805,7 +40572,7 @@ async function doExtractState(messageId) {
         if (!message.extra) {
             message.extra = {};
         }
-        (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_4__.setMessageState)(message, stateData);
+        (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.setMessageState)(message, stateData);
         await context.saveChat();
         // Render the extracted state
         if (messageElement) {
@@ -39818,7 +40585,7 @@ async function doExtractState(messageId) {
             (0,sillytavern_utils_lib_config__WEBPACK_IMPORTED_MODULE_2__.st_echo)?.('warning', '🔥 Extraction aborted');
         }
         else {
-            console.warn(`[${_constants__WEBPACK_IMPORTED_MODULE_9__.EXTENSION_NAME}] Extraction failed:`, e);
+            console.warn(`[${_constants__WEBPACK_IMPORTED_MODULE_10__.EXTENSION_NAME}] Extraction failed:`, e);
             (0,sillytavern_utils_lib_config__WEBPACK_IMPORTED_MODULE_2__.st_echo)?.('error', `🔥 Extraction failed: ${e.message}`);
         }
         // Clear loading state on error
@@ -39829,6 +40596,9 @@ async function doExtractState(messageId) {
     }
     finally {
         extractionInProgress.delete(messageId);
+        if (currentExtractionMessageId === messageId) {
+            currentExtractionMessageId = null;
+        }
         updateMenuButtonState(messageId, false);
     }
 }
@@ -39880,9 +40650,9 @@ function addMenuButton(messageId, messageElement) {
     }
 }
 // --- Internal render function (when we already have the element) ---
-function renderMessageStateInternal(messageId, messageElement, stateData, isExtracting) {
+function renderMessageStateInternal(messageId, messageElement, stateData, isExtracting, extractionStep) {
     addMenuButton(messageId, messageElement);
-    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_7__.getSettings)();
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_8__.getSettings)();
     const isAbove = settings.displayPosition === 'above';
     let needsNewRoot = false;
     let container = messageElement.querySelector('.bt-state-root');
@@ -39913,7 +40683,7 @@ function renderMessageStateInternal(messageId, messageElement, stateData, isExtr
         root = react_dom_client__WEBPACK_IMPORTED_MODULE_1__.createRoot(container);
         roots.set(messageId, root);
     }
-    root.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(StateDisplay, { stateData: stateData, isExtracting: isExtracting }));
+    root.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(StateDisplay, { stateData: stateData, isExtracting: isExtracting, extractionStep: extractionStep }));
     // If this is the most recent message, scroll to the end.
     const context = SillyTavern.getContext();
     if (messageId === context.chat.length - 1) {
@@ -39935,7 +40705,7 @@ function renderMessageState(messageId, stateData, isExtracting = false) {
         return;
     const currentStateData = stateData !== undefined
         ? stateData
-        : (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_4__.getMessageState)(message) ?? null;
+        : (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.getMessageState)(message) ?? null;
     renderMessageStateInternal(messageId, messageElement, currentStateData, isExtracting);
 }
 /** Clear loading state (used when extraction is handled elsewhere) */
@@ -39953,13 +40723,13 @@ function unmountMessageState(messageId) {
 function renderAllStates() {
     const context = SillyTavern.getContext();
     // Reset time tracker first
-    (0,_extractors_extractTime__WEBPACK_IMPORTED_MODULE_8__.resetTimeTracker)();
+    (0,_extractors_extractTime__WEBPACK_IMPORTED_MODULE_9__.resetTimeTracker)();
     // Find most recent message with state and initialize time tracker
     for (let i = context.chat.length - 1; i >= 0; i--) {
         const msg = context.chat[i];
-        const stored = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_4__.getMessageState)(msg);
+        const stored = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.getMessageState)(msg);
         if (stored?.state?.time) {
-            (0,_extractors_extractTime__WEBPACK_IMPORTED_MODULE_8__.setTimeTrackerState)(stored.state.time);
+            (0,_extractors_extractTime__WEBPACK_IMPORTED_MODULE_9__.setTimeTrackerState)(stored.state.time);
             break;
         }
     }
@@ -39985,25 +40755,36 @@ async function editMessageState(messageId) {
         (0,sillytavern_utils_lib_config__WEBPACK_IMPORTED_MODULE_2__.st_echo)?.('error', 'Message not found');
         return;
     }
-    const currentStateData = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_4__.getMessageState)(message);
+    const currentStateData = (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.getMessageState)(message);
     const currentState = currentStateData?.state || null;
-    const saved = await (0,_stateEditor__WEBPACK_IMPORTED_MODULE_5__.openStateEditor)(currentState, async (newState) => {
+    const saved = await (0,_stateEditor__WEBPACK_IMPORTED_MODULE_6__.openStateEditor)(currentState, async (newState) => {
         const stateData = {
             state: newState,
             extractedAt: new Date().toISOString(),
         };
-        (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_4__.setMessageState)(message, stateData);
+        (0,_utils_messageState__WEBPACK_IMPORTED_MODULE_5__.setMessageState)(message, stateData);
         await context.saveChat();
         renderMessageState(messageId, stateData);
-        (0,_injectors_injectState__WEBPACK_IMPORTED_MODULE_6__.updateInjectionFromChat)();
+        (0,_injectors_injectState__WEBPACK_IMPORTED_MODULE_7__.updateInjectionFromChat)();
         (0,sillytavern_utils_lib_config__WEBPACK_IMPORTED_MODULE_2__.st_echo)?.('success', '🔥 State updated');
     });
 }
 function initStateDisplay() {
     const context = SillyTavern.getContext();
+    // Wire up extraction progress updates
+    (0,_extractors_extractionProgress__WEBPACK_IMPORTED_MODULE_4__.onExtractionProgress)((progress) => {
+        currentExtractionStep = progress.step;
+        // Re-render the extracting message to show updated step
+        if (currentExtractionMessageId !== null && extractionInProgress.has(currentExtractionMessageId)) {
+            const messageElement = document.querySelector(`[mesid="${currentExtractionMessageId}"]`);
+            if (messageElement) {
+                renderMessageStateInternal(currentExtractionMessageId, messageElement, null, true, progress.step);
+            }
+        }
+    });
     // Only handle chat change for initial render - let index.ts handle message events
     context.eventSource.on(context.event_types.CHAT_CHANGED, (() => {
-        (0,_extractors_extractTime__WEBPACK_IMPORTED_MODULE_8__.resetTimeTracker)();
+        (0,_extractors_extractTime__WEBPACK_IMPORTED_MODULE_9__.resetTimeTracker)();
         setTimeout(renderAllStates, 100);
     }));
 }
