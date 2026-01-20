@@ -356,7 +356,7 @@ function makeGeneratorRequest(
         maxTokens,
         custom: { signal: abortController.signal },
         overridePayload: {
-          temperature: 0.3,  // Lower temp for more consistent time extraction
+          temperature: 0.3,
         }
       },
       {

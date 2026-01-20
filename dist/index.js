@@ -37934,6 +37934,8 @@ const EXTRACTION_PROMPT = `Analyze this roleplay conversation and extract the cu
 <objective>
 - Your task is to produce a JSON object defining the state of the scene as it is at the end of recent_messages.
 - Your final JSON object must perfectly match the defined schema.
+- You must start from scratch each time. The previous_state is stale, and it's important that you prune it aggressively.
+- The previous_state is provided as an outdated set of information, it should never be returned exactly the same.
 - You must only output valid JSON, with no surrounding commentary.
 - Do NOT include time in your output - time is tracked separately.
 </objective>
@@ -37964,8 +37966,9 @@ const EXTRACTION_PROMPT = `Analyze this roleplay conversation and extract the cu
 - If the tension level is the same as the previous_state, the direction is stable. Otherwise, set the direction based on whether it has increased or decreased.
 - Now work through the recent events, retain events which are still relevant, discard events which have been superceded or resolved.
 - Add significant recent events which affect the state of the roleplay i.e. a secret discovered, a higher level of intimacy, an injury.
-- If there are more than five recent events, keep the five most salient ones.
+- If there are more than five recentEvents, only return the five most salient ones.
 - Prune recent events aggressively if they are no longer relevant, or if there would be more than five.
+- You must not return more than five recentEvents, even if the previous_state has more than five.
 </scene>
 <characters>
 For each character in the scene, watch closely for the following:
@@ -37973,6 +37976,7 @@ For each character in the scene, watch closely for the following:
 - Position changes (standing→sitting, moves across room)
 - Consider whether the character would usually wear clothes (i.e. a pony or a Pokémon would not), in this case only add clothes if explicitly mentioned, otherwise return null for all slots.
 - Outfit changes (removes jacket, unbuttons shirt, etc) → set slot to null if removed and add the item of clothing to location props
+- Do not suffix outfit.* with '(off)', '(removed)', '(undressed)' etc. Set the slot to null and add the item to location.props.
 - Fur and other anatomy do not count as part of a character's outfit. Do not include them when extracting outfit.
 - Outfit must be *specific*, 't-shirt' not 'default top' or 'unspecified top'.
 - Mood shifts (dialogue tone, reactions, internal thoughts)
@@ -38183,7 +38187,7 @@ function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
             maxTokens,
             custom: { signal: abortController.signal },
             overridePayload: {
-                temperature: 0.5,
+                temperature: 0.8,
             }
         }, {
             abortController,
@@ -38532,7 +38536,7 @@ function makeGeneratorRequest(messages, profileId, maxTokens, abortSignal) {
             maxTokens,
             custom: { signal: abortController.signal },
             overridePayload: {
-                temperature: 0.3, // Lower temp for more consistent time extraction
+                temperature: 0.3,
             }
         }, {
             abortController,
