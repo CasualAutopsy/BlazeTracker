@@ -1,4 +1,4 @@
-import { getSettings } from '../settings';
+import { getSettings, getTemperature } from '../settings';
 import { getPrompt } from './prompts';
 import { makeGeneratorRequest, buildExtractionMessages } from '../utils/generator';
 import { parseJsonResponse, asNumber } from '../utils/json';
@@ -103,8 +103,6 @@ const DELTA_EXAMPLE = JSON.stringify(
 // ============================================
 
 const SYSTEM_PROMPT = 'You are a time analysis agent. Return only valid JSON.';
-const DATETIME_TEMPERATURE = 0.3;
-const DELTA_TEMPERATURE = 0.3;
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -196,7 +194,7 @@ export async function extractDateTime(
 	const response = await makeGeneratorRequest(llmMessages, {
 		profileId,
 		maxTokens: settings.maxResponseTokens,
-		temperature: DATETIME_TEMPERATURE,
+		temperature: getTemperature('time_datetime'),
 		abortSignal,
 	});
 
@@ -227,7 +225,7 @@ async function extractTimeDelta(
 	const response = await makeGeneratorRequest(llmMessages, {
 		profileId,
 		maxTokens: settings.maxResponseTokens,
-		temperature: DELTA_TEMPERATURE,
+		temperature: getTemperature('time_delta'),
 		abortSignal,
 	});
 

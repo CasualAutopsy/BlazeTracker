@@ -33,6 +33,7 @@ export interface PromptDefinition {
 	description: string;
 	placeholders: PromptPlaceholder[];
 	default: string;
+	defaultTemperature: number;
 }
 
 export interface CustomPrompts {
@@ -105,6 +106,7 @@ export const DEFAULT_PROMPTS: Record<PromptKey, PromptDefinition> = {
 		key: 'time_datetime',
 		name: 'Time - Initial DateTime',
 		description: 'Extracts the narrative date and time from the scene opening',
+		defaultTemperature: 0.3,
 		placeholders: [
 			COMMON_PLACEHOLDERS.messages,
 			COMMON_PLACEHOLDERS.schema,
@@ -142,6 +144,7 @@ Extract the narrative date and time as valid JSON:`,
 		key: 'time_delta',
 		name: 'Time - Delta',
 		description: 'Determines how much narrative time has passed in the messages',
+		defaultTemperature: 0.3,
 		placeholders: [
 			COMMON_PLACEHOLDERS.currentTime,
 			COMMON_PLACEHOLDERS.messages,
@@ -192,6 +195,7 @@ Based on the actual content of the messages above, extract the time delta as val
 		key: 'location_initial',
 		name: 'Location - Initial',
 		description: 'Extracts location from the scene opening',
+		defaultTemperature: 0.5,
 		placeholders: [
 			COMMON_PLACEHOLDERS.characterInfo,
 			COMMON_PLACEHOLDERS.messages,
@@ -232,6 +236,7 @@ Extract the location as valid JSON:`,
 		key: 'location_update',
 		name: 'Location - Update',
 		description: 'Updates location based on recent messages',
+		defaultTemperature: 0.5,
 		placeholders: [
 			COMMON_PLACEHOLDERS.previousState,
 			COMMON_PLACEHOLDERS.messages,
@@ -272,6 +277,7 @@ Extract the current location as valid JSON:`,
 		key: 'climate_initial',
 		name: 'Climate - Initial',
 		description: 'Extracts weather and temperature from scene opening',
+		defaultTemperature: 0.3,
 		placeholders: [
 			COMMON_PLACEHOLDERS.narrativeTime,
 			COMMON_PLACEHOLDERS.location,
@@ -323,6 +329,7 @@ Extract the climate as valid JSON:`,
 		key: 'climate_update',
 		name: 'Climate - Update',
 		description: 'Updates weather/temperature based on recent messages',
+		defaultTemperature: 0.3,
 		placeholders: [
 			COMMON_PLACEHOLDERS.narrativeTime,
 			COMMON_PLACEHOLDERS.location,
@@ -373,6 +380,7 @@ Extract the current climate as valid JSON:`,
 		key: 'characters_initial',
 		name: 'Characters - Initial',
 		description: 'Extracts all character states from scene opening',
+		defaultTemperature: 0.7,
 		placeholders: [
 			COMMON_PLACEHOLDERS.userInfo,
 			COMMON_PLACEHOLDERS.characterInfo,
@@ -431,6 +439,7 @@ Extract all characters as valid JSON array:`,
 		key: 'characters_update',
 		name: 'Characters - Update',
 		description: 'Updates character states based on recent messages',
+		defaultTemperature: 0.7,
 		placeholders: [
 			COMMON_PLACEHOLDERS.location,
 			COMMON_PLACEHOLDERS.previousState,
@@ -492,6 +501,7 @@ Extract updated characters as valid JSON array:`,
 		key: 'scene_initial',
 		name: 'Scene - Initial',
 		description: 'Extracts scene topic, tone, tension, and events from opening',
+		defaultTemperature: 0.6,
 		placeholders: [
 			COMMON_PLACEHOLDERS.characterInfo,
 			COMMON_PLACEHOLDERS.charactersSummary,
@@ -546,6 +556,7 @@ Extract the scene state as valid JSON:`,
 		key: 'scene_update',
 		name: 'Scene - Update',
 		description: 'Updates scene state based on recent messages',
+		defaultTemperature: 0.6,
 		placeholders: [
 			COMMON_PLACEHOLDERS.charactersSummary,
 			COMMON_PLACEHOLDERS.previousState,

@@ -38051,7 +38051,6 @@ const CHARACTERS_EXAMPLE = JSON.stringify([
 // Constants
 // ============================================
 const SYSTEM_PROMPT = 'You are a character state analysis agent for roleplay scenes. Return only valid JSON.';
-const TEMPERATURE = 0.7;
 // ============================================
 // Public API
 // ============================================
@@ -38077,7 +38076,7 @@ async function extractCharacters(isInitial, messages, location, userInfo, charac
     const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
         profileId: settings.profileId,
         maxTokens: settings.maxResponseTokens,
-        temperature: TEMPERATURE,
+        temperature: (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getTemperature)(isInitial ? 'characters_initial' : 'characters_update'),
         abortSignal,
     });
     const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
@@ -38206,7 +38205,6 @@ const CLIMATE_EXAMPLE = JSON.stringify({
 // Constants
 // ============================================
 const SYSTEM_PROMPT = 'You are a climate analysis agent for roleplay scenes. Return only valid JSON.';
-const TEMPERATURE = 0.3;
 const VALID_WEATHER = [
     'sunny',
     'cloudy',
@@ -38242,7 +38240,7 @@ async function extractClimate(isInitial, messages, narrativeTime, location, char
     const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
         profileId: settings.profileId,
         maxTokens: settings.maxResponseTokens,
-        temperature: TEMPERATURE,
+        temperature: (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getTemperature)(isInitial ? 'climate_initial' : 'climate_update'),
         abortSignal,
     });
     const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
@@ -38355,7 +38353,6 @@ const LOCATION_EXAMPLE = JSON.stringify({
 // Constants
 // ============================================
 const SYSTEM_PROMPT = 'You are a location analysis agent for roleplay scenes. Return only valid JSON.';
-const TEMPERATURE = 0.5;
 // ============================================
 // Public API
 // ============================================
@@ -38377,7 +38374,7 @@ async function extractLocation(isInitial, messages, characterInfo, previousLocat
     const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
         profileId: settings.profileId,
         maxTokens: settings.maxResponseTokens,
-        temperature: TEMPERATURE,
+        temperature: (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getTemperature)(isInitial ? 'location_initial' : 'location_update'),
         abortSignal,
     });
     const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
@@ -38513,7 +38510,6 @@ const SCENE_EXAMPLE = JSON.stringify({
 // Constants
 // ============================================
 const SYSTEM_PROMPT = 'You are a scene analysis agent for roleplay. Return only valid JSON.';
-const TEMPERATURE = 0.6;
 const VALID_TENSION_LEVELS = [
     'relaxed',
     'aware',
@@ -38564,7 +38560,7 @@ async function extractScene(isInitial, messages, characters, characterInfo, prev
     const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
         profileId: settings.profileId,
         maxTokens: settings.maxResponseTokens,
-        temperature: TEMPERATURE,
+        temperature: (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getTemperature)(isInitial ? 'scene_initial' : 'scene_update'),
         abortSignal,
     });
     const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
@@ -38955,8 +38951,6 @@ const DELTA_EXAMPLE = JSON.stringify({
 // Constants
 // ============================================
 const SYSTEM_PROMPT = 'You are a time analysis agent. Return only valid JSON.';
-const DATETIME_TEMPERATURE = 0.3;
-const DELTA_TEMPERATURE = 0.3;
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 // ============================================
 // Time Tracker State (module-level singleton)
@@ -39026,7 +39020,7 @@ async function extractDateTime(message, profileId, abortSignal) {
     const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
         profileId,
         maxTokens: settings.maxResponseTokens,
-        temperature: DATETIME_TEMPERATURE,
+        temperature: (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getTemperature)('time_datetime'),
         abortSignal,
     });
     const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
@@ -39047,7 +39041,7 @@ async function extractTimeDelta(message, profileId, abortSignal) {
     const response = await (0,_utils_generator__WEBPACK_IMPORTED_MODULE_2__.makeGeneratorRequest)(llmMessages, {
         profileId,
         maxTokens: settings.maxResponseTokens,
-        temperature: DELTA_TEMPERATURE,
+        temperature: (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getTemperature)('time_delta'),
         abortSignal,
     });
     const parsed = (0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.parseJsonResponse)(response, {
@@ -39333,6 +39327,7 @@ const DEFAULT_PROMPTS = {
         key: 'time_datetime',
         name: 'Time - Initial DateTime',
         description: 'Extracts the narrative date and time from the scene opening',
+        defaultTemperature: 0.3,
         placeholders: [
             COMMON_PLACEHOLDERS.messages,
             COMMON_PLACEHOLDERS.schema,
@@ -39369,6 +39364,7 @@ Extract the narrative date and time as valid JSON:`,
         key: 'time_delta',
         name: 'Time - Delta',
         description: 'Determines how much narrative time has passed in the messages',
+        defaultTemperature: 0.3,
         placeholders: [
             COMMON_PLACEHOLDERS.currentTime,
             COMMON_PLACEHOLDERS.messages,
@@ -39418,6 +39414,7 @@ Based on the actual content of the messages above, extract the time delta as val
         key: 'location_initial',
         name: 'Location - Initial',
         description: 'Extracts location from the scene opening',
+        defaultTemperature: 0.5,
         placeholders: [
             COMMON_PLACEHOLDERS.characterInfo,
             COMMON_PLACEHOLDERS.messages,
@@ -39457,6 +39454,7 @@ Extract the location as valid JSON:`,
         key: 'location_update',
         name: 'Location - Update',
         description: 'Updates location based on recent messages',
+        defaultTemperature: 0.5,
         placeholders: [
             COMMON_PLACEHOLDERS.previousState,
             COMMON_PLACEHOLDERS.messages,
@@ -39496,6 +39494,7 @@ Extract the current location as valid JSON:`,
         key: 'climate_initial',
         name: 'Climate - Initial',
         description: 'Extracts weather and temperature from scene opening',
+        defaultTemperature: 0.3,
         placeholders: [
             COMMON_PLACEHOLDERS.narrativeTime,
             COMMON_PLACEHOLDERS.location,
@@ -39546,6 +39545,7 @@ Extract the climate as valid JSON:`,
         key: 'climate_update',
         name: 'Climate - Update',
         description: 'Updates weather/temperature based on recent messages',
+        defaultTemperature: 0.3,
         placeholders: [
             COMMON_PLACEHOLDERS.narrativeTime,
             COMMON_PLACEHOLDERS.location,
@@ -39595,6 +39595,7 @@ Extract the current climate as valid JSON:`,
         key: 'characters_initial',
         name: 'Characters - Initial',
         description: 'Extracts all character states from scene opening',
+        defaultTemperature: 0.7,
         placeholders: [
             COMMON_PLACEHOLDERS.userInfo,
             COMMON_PLACEHOLDERS.characterInfo,
@@ -39652,6 +39653,7 @@ Extract all characters as valid JSON array:`,
         key: 'characters_update',
         name: 'Characters - Update',
         description: 'Updates character states based on recent messages',
+        defaultTemperature: 0.7,
         placeholders: [
             COMMON_PLACEHOLDERS.location,
             COMMON_PLACEHOLDERS.previousState,
@@ -39712,6 +39714,7 @@ Extract updated characters as valid JSON array:`,
         key: 'scene_initial',
         name: 'Scene - Initial',
         description: 'Extracts scene topic, tone, tension, and events from opening',
+        defaultTemperature: 0.6,
         placeholders: [
             COMMON_PLACEHOLDERS.characterInfo,
             COMMON_PLACEHOLDERS.charactersSummary,
@@ -39765,6 +39768,7 @@ Extract the scene state as valid JSON:`,
         key: 'scene_update',
         name: 'Scene - Update',
         description: 'Updates scene state based on recent messages',
+        defaultTemperature: 0.6,
         placeholders: [
             COMMON_PLACEHOLDERS.charactersSummary,
             COMMON_PLACEHOLDERS.previousState,
@@ -40188,7 +40192,9 @@ async function migrateOldTimeFormats(context, profileId) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   defaultSettings: () => (/* binding */ defaultSettings),
+/* harmony export */   defaultTemperatures: () => (/* binding */ defaultTemperatures),
 /* harmony export */   getSettings: () => (/* binding */ getSettings),
+/* harmony export */   getTemperature: () => (/* binding */ getTemperature),
 /* harmony export */   settingsManager: () => (/* binding */ settingsManager),
 /* harmony export */   updateSetting: () => (/* binding */ updateSetting)
 /* harmony export */ });
@@ -40207,7 +40213,32 @@ const defaultSettings = {
     temperatureUnit: 'fahrenheit',
     timeFormat: '24h',
     customPrompts: {},
+    customTemperatures: {},
 };
+// Default temperatures for each extractor prompt
+const defaultTemperatures = {
+    time_datetime: 0.3,
+    time_delta: 0.3,
+    location_initial: 0.5,
+    location_update: 0.5,
+    climate_initial: 0.3,
+    climate_update: 0.3,
+    characters_initial: 0.7,
+    characters_update: 0.7,
+    scene_initial: 0.6,
+    scene_update: 0.6,
+};
+/**
+ * Get the temperature for a specific prompt key.
+ * Returns custom temperature if set, otherwise the default.
+ */
+function getTemperature(key) {
+    const settings = getSettings();
+    if (key in settings.customTemperatures) {
+        return settings.customTemperatures[key];
+    }
+    return defaultTemperatures[key] ?? 0.5;
+}
 const settingsManager = new sillytavern_utils_lib__WEBPACK_IMPORTED_MODULE_0__.ExtensionSettingsManager(_constants__WEBPACK_IMPORTED_MODULE_1__.EXTENSION_KEY, defaultSettings);
 function getSettings() {
     return settingsManager.getSettings();
@@ -40228,7 +40259,7 @@ function updateSetting(key, value) {
   \*****************************/
 (module, __unused_webpack_exports, __webpack_require__) {
 
-module.exports = __webpack_require__.p + "a2a6170fe25d134791a9.css";
+module.exports = __webpack_require__.p + "4202f158bef5f780a78c.css";
 
 /***/ },
 
@@ -40265,12 +40296,16 @@ function NumberField({ id, label, description, value, min, max, step, onChange, 
 function CheckboxField({ id, label, description, checked, onChange }) {
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", { className: "checkbox_label", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "checkbox", id: id, checked: checked, onChange: e => onChange(e.target.checked) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: label })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: description })] }));
 }
-function PromptEditor({ definition, customPrompts, onSave }) {
+function PromptEditor({ definition, customPrompts, customTemperatures, onSave, onSaveTemperature }) {
     const [isEditing, setIsEditing] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
     const [editValue, setEditValue] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('');
-    const isCustomized = !!customPrompts[definition.key];
+    const [editTemperature, setEditTemperature] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(definition.defaultTemperature);
+    const isPromptCustomized = !!customPrompts[definition.key];
+    const isTemperatureCustomized = definition.key in customTemperatures;
+    const currentTemperature = customTemperatures[definition.key] ?? definition.defaultTemperature;
     const handleEdit = () => {
         setEditValue(customPrompts[definition.key] || definition.default);
+        setEditTemperature(currentTemperature);
         setIsEditing(true);
     };
     const handleSave = () => {
@@ -40281,25 +40316,41 @@ function PromptEditor({ definition, customPrompts, onSave }) {
         else {
             onSave(definition.key, editValue);
         }
+        // Same for temperature
+        if (editTemperature === definition.defaultTemperature) {
+            onSaveTemperature(definition.key, null);
+        }
+        else {
+            onSaveTemperature(definition.key, editTemperature);
+        }
         setIsEditing(false);
     };
     const handleReset = () => {
         onSave(definition.key, null);
+        onSaveTemperature(definition.key, null);
         setIsEditing(false);
     };
     const handleCancel = () => {
         setIsEditing(false);
     };
+    const handleTemperatureInput = (value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+            setEditTemperature(Math.max(0, Math.min(2, num)));
+        }
+    };
     if (isEditing) {
-        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: definition.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-description", children: definition.description })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-placeholders", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Available placeholders:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: definition.placeholders.map(p => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("li", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("code", { children: p.name }), " \u2014", ' ', p.description] }, p.name))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { className: "text_pole bt-prompt-textarea", value: editValue, onChange: e => setEditValue(e.target.value), rows: 15 }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleSave, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-check" }), " Save"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleReset, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-rotate-left" }), " Reset to Default"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleCancel, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-xmark" }), " Cancel"] })] })] }));
+        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-editor-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: definition.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-description", children: definition.description })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-temperature-control", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", { className: "bt-temperature-label", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Temperature:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "range", className: "bt-temperature-slider", min: "0", max: "2", step: "0.05", value: editTemperature, onChange: e => setEditTemperature(parseFloat(e.target.value)) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", className: "bt-temperature-input", min: "0", max: "2", step: "0.05", value: editTemperature, onChange: e => handleTemperatureInput(e.target.value) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-temperature-default", children: ["(default: ", definition.defaultTemperature, ")"] })] }) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-placeholders", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Available placeholders:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: definition.placeholders.map(p => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("li", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("code", { children: p.name }), " \u2014", ' ', p.description] }, p.name))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { className: "text_pole bt-prompt-textarea", value: editValue, onChange: e => setEditValue(e.target.value), rows: 15 }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleSave, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-check" }), " Save"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleReset, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-rotate-left" }), " Reset to Default"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "menu_button", onClick: handleCancel, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-xmark" }), " Cancel"] })] })] }));
     }
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item", onClick: handleEdit, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-name", children: definition.name }), isCustomized && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-customized", title: "Custom prompt", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-pen" }) }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { className: "bt-prompt-description", children: definition.description })] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item", onClick: handleEdit, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-item-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-name", children: definition.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompt-badges", children: [isTemperatureCustomized && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-prompt-temperature-badge", title: `Custom temperature: ${currentTemperature}`, children: ["\uD83C\uDF21\uFE0F", currentTemperature] })), isPromptCustomized && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-prompt-customized", title: "Custom prompt", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-pen" }) }))] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { className: "bt-prompt-description", children: definition.description })] }));
 }
-function PromptsSection({ customPrompts, onUpdatePrompt }) {
+function PromptsSection({ customPrompts, customTemperatures, onUpdatePrompt, onUpdateTemperature }) {
     const [isExpanded, setIsExpanded] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
     const definitions = (0,_extractors_prompts__WEBPACK_IMPORTED_MODULE_5__.getAllPromptDefinitions)();
-    const customizedCount = definitions.filter(d => !!customPrompts[d.key]).length;
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-header", onClick: () => setIsExpanded(!isExpanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-title", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid fa-chevron-${isExpanded ? 'down' : 'right'}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Custom Prompts" }), customizedCount > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-prompts-count", children: ["(", customizedCount, " customized)"] }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Click to customize extraction prompts for different models" })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-prompts-list", children: definitions.map(def => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptEditor, { definition: def, customPrompts: customPrompts, onSave: onUpdatePrompt }, def.key))) }))] }));
+    const customizedPromptCount = definitions.filter(d => !!customPrompts[d.key]).length;
+    const customizedTempCount = definitions.filter(d => d.key in customTemperatures).length;
+    const totalCustomized = customizedPromptCount + customizedTempCount;
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-header", onClick: () => setIsExpanded(!isExpanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-title", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid fa-chevron-${isExpanded ? 'down' : 'right'}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Custom Prompts" }), totalCustomized > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-prompts-count", children: ["(", totalCustomized, " customized)"] }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Click to customize extraction prompts and temperatures" })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-prompts-list", children: definitions.map(def => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptEditor, { definition: def, customPrompts: customPrompts, customTemperatures: customTemperatures, onSave: onUpdatePrompt, onSaveTemperature: onUpdateTemperature }, def.key))) }))] }));
 }
 // ============================================
 // Main Settings Panel Component
@@ -40344,6 +40395,16 @@ function SettingsPanel() {
         }
         handleUpdate('customPrompts', newCustomPrompts);
     }, [settings.customPrompts, handleUpdate]);
+    const handleTemperatureUpdate = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((key, value) => {
+        const newCustomTemperatures = { ...settings.customTemperatures };
+        if (value === null) {
+            delete newCustomTemperatures[key];
+        }
+        else {
+            newCustomTemperatures[key] = value;
+        }
+        handleUpdate('customTemperatures', newCustomTemperatures);
+    }, [settings.customTemperatures, handleUpdate]);
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "blazetracker-settings-content", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "flex-container flexFlowColumn", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { htmlFor: "blazetracker-profile", children: "Connection Profile" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Select which API connection to use for state extraction" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", { id: "blazetracker-profile", className: "text_pole", value: settings.profileId, onChange: e => handleUpdate('profileId', e.target.value), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: "", children: "-- Select a profile --" }), profiles.map(profile => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: profile.id, children: profile.name || profile.id }, profile.id)))] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-automode", label: "Auto Mode", description: "When to automatically extract state", value: settings.autoMode, options: [
                     { value: 'none', label: 'None (manual only)' },
                     { value: 'responses', label: 'AI responses only' },
@@ -40358,7 +40419,7 @@ function SettingsPanel() {
                 ], onChange: handleTempUnitChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-timeformat", label: "Time Format", description: "Display time in 12-hour or 24-hour format", value: settings.timeFormat, options: [
                     { value: '24h', label: '24-hour (14:30)' },
                     { value: '12h', label: '12-hour (2:30 PM)' },
-                ], onChange: handleTimeFormatChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptsSection, { customPrompts: settings.customPrompts, onUpdatePrompt: handlePromptUpdate })] }));
+                ], onChange: handleTimeFormatChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptsSection, { customPrompts: settings.customPrompts, customTemperatures: settings.customTemperatures, onUpdatePrompt: handlePromptUpdate, onUpdateTemperature: handleTemperatureUpdate })] }));
 }
 // ============================================
 // Initialization
@@ -41430,6 +41491,35 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   isObject: () => (/* binding */ isObject),
 /* harmony export */   parseJsonResponse: () => (/* binding */ parseJsonResponse)
 /* harmony export */ });
+// ============================================
+// JSON Repair Functions
+// ============================================
+/**
+ * Fix unquoted keys in JSON strings.
+ * Converts: { footwear: null } -> { "footwear": null }
+ */
+function repairUnquotedKeys(jsonStr) {
+    // Match unquoted keys after { or , (with optional whitespace/newlines)
+    // Captures: delimiter, key name, colon
+    return jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+}
+/**
+ * Apply all repair functions to a JSON string.
+ * Add new repair functions here as needed.
+ */
+function repairJson(jsonStr) {
+    let repaired = jsonStr;
+    // Apply repairs in sequence
+    repaired = repairUnquotedKeys(repaired);
+    // Add more repairs here as needed:
+    // repaired = repairTrailingCommas(repaired);
+    // repaired = repairSingleQuotes(repaired);
+    // etc.
+    return repaired;
+}
+// ============================================
+// Main Parser
+// ============================================
 /**
  * Parse a JSON response from an LLM, handling markdown code blocks
  * and extracting the JSON object or array.
@@ -41473,13 +41563,22 @@ function parseJsonResponse(response, options = {}) {
             jsonStr = arrayMatch[0];
         }
     }
+    // Try parsing as-is first
     try {
         return JSON.parse(jsonStr);
     }
-    catch (e) {
-        console.error(`[${moduleName}] Failed to parse response:`, e);
-        console.error(`[${moduleName}] Response was:`, response);
-        throw new Error(`Failed to parse ${moduleName} response as JSON`);
+    catch {
+        // Try with repairs
+        const repaired = repairJson(jsonStr);
+        try {
+            return JSON.parse(repaired);
+        }
+        catch (e) {
+            console.error(`[${moduleName}] Failed to parse response:`, e);
+            console.error(`[${moduleName}] Original:`, jsonStr);
+            console.error(`[${moduleName}] After repair:`, repaired);
+            throw new Error(`Failed to parse ${moduleName} response as JSON`);
+        }
     }
 }
 /**

@@ -1,4 +1,4 @@
-import { getSettings } from '../settings';
+import { getSettings, getTemperature } from '../settings';
 import { getPrompt } from './prompts';
 import { makeGeneratorRequest, buildExtractionMessages } from '../utils/generator';
 import { parseJsonResponse, asString, asStringArray, isObject } from '../utils/json';
@@ -121,7 +121,6 @@ const SCENE_EXAMPLE = JSON.stringify(
 // ============================================
 
 const SYSTEM_PROMPT = 'You are a scene analysis agent for roleplay. Return only valid JSON.';
-const TEMPERATURE = 0.6;
 
 const VALID_TENSION_LEVELS: readonly TensionLevel[] = [
 	'relaxed',
@@ -190,7 +189,7 @@ export async function extractScene(
 	const response = await makeGeneratorRequest(llmMessages, {
 		profileId: settings.profileId,
 		maxTokens: settings.maxResponseTokens,
-		temperature: TEMPERATURE,
+		temperature: getTemperature(isInitial ? 'scene_initial' : 'scene_update'),
 		abortSignal,
 	});
 

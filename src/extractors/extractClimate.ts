@@ -1,4 +1,4 @@
-import { getSettings } from '../settings';
+import { getSettings, getTemperature } from '../settings';
 import { getPrompt } from './prompts';
 import { makeGeneratorRequest, buildExtractionMessages } from '../utils/generator';
 import { parseJsonResponse, asNumber } from '../utils/json';
@@ -55,7 +55,6 @@ const CLIMATE_EXAMPLE = JSON.stringify(
 
 const SYSTEM_PROMPT =
 	'You are a climate analysis agent for roleplay scenes. Return only valid JSON.';
-const TEMPERATURE = 0.3;
 const VALID_WEATHER: readonly WeatherType[] = [
 	'sunny',
 	'cloudy',
@@ -108,7 +107,7 @@ export async function extractClimate(
 	const response = await makeGeneratorRequest(llmMessages, {
 		profileId: settings.profileId,
 		maxTokens: settings.maxResponseTokens,
-		temperature: TEMPERATURE,
+		temperature: getTemperature(isInitial ? 'climate_initial' : 'climate_update'),
 		abortSignal,
 	});
 

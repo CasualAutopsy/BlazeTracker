@@ -1,4 +1,4 @@
-import { getSettings } from '../settings';
+import { getSettings, getTemperature } from '../settings';
 import { getPrompt } from './prompts';
 import { makeGeneratorRequest, buildExtractionMessages } from '../utils/generator';
 import { parseJsonResponse, asString, asStringArray } from '../utils/json';
@@ -68,7 +68,6 @@ const LOCATION_EXAMPLE = JSON.stringify(
 
 const SYSTEM_PROMPT =
 	'You are a location analysis agent for roleplay scenes. Return only valid JSON.';
-const TEMPERATURE = 0.5;
 
 // ============================================
 // Public API
@@ -104,7 +103,7 @@ export async function extractLocation(
 	const response = await makeGeneratorRequest(llmMessages, {
 		profileId: settings.profileId,
 		maxTokens: settings.maxResponseTokens,
-		temperature: TEMPERATURE,
+		temperature: getTemperature(isInitial ? 'location_initial' : 'location_update'),
 		abortSignal,
 	});
 

@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Vitest coverage
+coverage/
+
 # TypeScript cache
 *.tsbuildinfo
 

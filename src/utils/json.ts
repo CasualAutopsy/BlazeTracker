@@ -13,6 +13,45 @@ export interface ParseOptions {
 	moduleName?: string;
 }
 
+// ============================================
+// JSON Repair Functions
+// ============================================
+
+/**
+ * Fix unquoted keys in JSON strings.
+ * Converts: { footwear: null } -> { "footwear": null }
+ */
+function repairUnquotedKeys(jsonStr: string): string {
+	// Match unquoted keys after { or , (with optional whitespace/newlines)
+	// Captures: delimiter, key name, colon
+	return jsonStr.replace(
+		/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g,
+		'$1"$2"$3',
+	);
+}
+
+/**
+ * Apply all repair functions to a JSON string.
+ * Add new repair functions here as needed.
+ */
+function repairJson(jsonStr: string): string {
+	let repaired = jsonStr;
+
+	// Apply repairs in sequence
+	repaired = repairUnquotedKeys(repaired);
+
+	// Add more repairs here as needed:
+	// repaired = repairTrailingCommas(repaired);
+	// repaired = repairSingleQuotes(repaired);
+	// etc.
+
+	return repaired;
+}
+
+// ============================================
+// Main Parser
+// ============================================
+
 /**
  * Parse a JSON response from an LLM, handling markdown code blocks
  * and extracting the JSON object or array.
@@ -57,12 +96,20 @@ export function parseJsonResponse<T = unknown>(response: string, options: ParseO
 		}
 	}
 
+	// Try parsing as-is first
 	try {
 		return JSON.parse(jsonStr) as T;
-	} catch (e) {
-		console.error(`[${moduleName}] Failed to parse response:`, e);
-		console.error(`[${moduleName}] Response was:`, response);
-		throw new Error(`Failed to parse ${moduleName} response as JSON`);
+	} catch {
+		// Try with repairs
+		const repaired = repairJson(jsonStr);
+		try {
+			return JSON.parse(repaired) as T;
+		} catch (e) {
+			console.error(`[${moduleName}] Failed to parse response:`, e);
+			console.error(`[${moduleName}] Original:`, jsonStr);
+			console.error(`[${moduleName}] After repair:`, repaired);
+			throw new Error(`Failed to parse ${moduleName} response as JSON`);
+		}
 	}
 }
 

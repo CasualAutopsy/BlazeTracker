@@ -5,6 +5,7 @@ import {
 	type BlazeTrackerSettings,
 	updateSetting,
 	getSettings,
+	defaultTemperatures,
 } from '../settings';
 import { renderAllStates } from './stateDisplay';
 import {
@@ -127,16 +128,23 @@ function CheckboxField({ id, label, description, checked, onChange }: CheckboxFi
 interface PromptEditorProps {
 	definition: PromptDefinition;
 	customPrompts: Record<string, string>;
+	customTemperatures: Record<string, number>;
 	onSave: (key: PromptKey, value: string | null) => void;
+	onSaveTemperature: (key: PromptKey, value: number | null) => void;
 }
 
-function PromptEditor({ definition, customPrompts, onSave }: PromptEditorProps) {
+function PromptEditor({ definition, customPrompts, customTemperatures, onSave, onSaveTemperature }: PromptEditorProps) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [editValue, setEditValue] = useState('');
-	const isCustomized = !!customPrompts[definition.key];
+	const [editTemperature, setEditTemperature] = useState(definition.defaultTemperature);
+
+	const isPromptCustomized = !!customPrompts[definition.key];
+	const isTemperatureCustomized = definition.key in customTemperatures;
+	const currentTemperature = customTemperatures[definition.key] ?? definition.defaultTemperature;
 
 	const handleEdit = () => {
 		setEditValue(customPrompts[definition.key] || definition.default);
+		setEditTemperature(currentTemperature);
 		setIsEditing(true);
 	};
 
@@ -147,16 +155,32 @@ function PromptEditor({ definition, customPrompts, onSave }: PromptEditorProps) 
 		} else {
 			onSave(definition.key, editValue);
 		}
+
+		// Same for temperature
+		if (editTemperature === definition.defaultTemperature) {
+			onSaveTemperature(definition.key, null);
+		} else {
+			onSaveTemperature(definition.key, editTemperature);
+		}
+
 		setIsEditing(false);
 	};
 
 	const handleReset = () => {
 		onSave(definition.key, null);
+		onSaveTemperature(definition.key, null);
 		setIsEditing(false);
 	};
 
 	const handleCancel = () => {
 		setIsEditing(false);
+	};
+
+	const handleTemperatureInput = (value: string) => {
+		const num = parseFloat(value);
+		if (!isNaN(num)) {
+			setEditTemperature(Math.max(0, Math.min(2, num)));
+		}
 	};
 
 	if (isEditing) {
@@ -167,6 +191,33 @@ function PromptEditor({ definition, customPrompts, onSave }: PromptEditorProps) 
 					<span className="bt-prompt-description">
 						{definition.description}
 					</span>
+				</div>
+
+				<div className="bt-temperature-control">
+					<label className="bt-temperature-label">
+						<span>Temperature:</span>
+						<input
+							type="range"
+							className="bt-temperature-slider"
+							min="0"
+							max="2"
+							step="0.05"
+							value={editTemperature}
+							onChange={e => setEditTemperature(parseFloat(e.target.value))}
+						/>
+						<input
+							type="number"
+							className="bt-temperature-input"
+							min="0"
+							max="2"
+							step="0.05"
+							value={editTemperature}
+							onChange={e => handleTemperatureInput(e.target.value)}
+						/>
+						<span className="bt-temperature-default">
+							(default: {definition.defaultTemperature})
+						</span>
+					</label>
 				</div>
 
 				<div className="bt-prompt-placeholders">
@@ -208,14 +259,24 @@ function PromptEditor({ definition, customPrompts, onSave }: PromptEditorProps) 
 		<div className="bt-prompt-item" onClick={handleEdit}>
 			<div className="bt-prompt-item-header">
 				<span className="bt-prompt-name">{definition.name}</span>
-				{isCustomized && (
-					<span
-						className="bt-prompt-customized"
-						title="Custom prompt"
-					>
-						<i className="fa-solid fa-pen"></i>
-					</span>
-				)}
+				<div className="bt-prompt-badges">
+					{isTemperatureCustomized && (
+						<span
+							className="bt-prompt-temperature-badge"
+							title={`Custom temperature: ${currentTemperature}`}
+						>
+							🌡️{currentTemperature}
+						</span>
+					)}
+					{isPromptCustomized && (
+						<span
+							className="bt-prompt-customized"
+							title="Custom prompt"
+						>
+							<i className="fa-solid fa-pen"></i>
+						</span>
+					)}
+				</div>
 			</div>
 			<small className="bt-prompt-description">{definition.description}</small>
 		</div>
@@ -228,14 +289,18 @@ function PromptEditor({ definition, customPrompts, onSave }: PromptEditorProps) 
 
 interface PromptsSectionProps {
 	customPrompts: Record<string, string>;
+	customTemperatures: Record<string, number>;
 	onUpdatePrompt: (key: PromptKey, value: string | null) => void;
+	onUpdateTemperature: (key: PromptKey, value: number | null) => void;
 }
 
-function PromptsSection({ customPrompts, onUpdatePrompt }: PromptsSectionProps) {
+function PromptsSection({ customPrompts, customTemperatures, onUpdatePrompt, onUpdateTemperature }: PromptsSectionProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const definitions = getAllPromptDefinitions();
 
-	const customizedCount = definitions.filter(d => !!customPrompts[d.key]).length;
+	const customizedPromptCount = definitions.filter(d => !!customPrompts[d.key]).length;
+	const customizedTempCount = definitions.filter(d => d.key in customTemperatures).length;
+	const totalCustomized = customizedPromptCount + customizedTempCount;
 
 	return (
 		<div className="bt-prompts-section">
@@ -248,14 +313,14 @@ function PromptsSection({ customPrompts, onUpdatePrompt }: PromptsSectionProps) 
 						className={`fa-solid fa-chevron-${isExpanded ? 'down' : 'right'}`}
 					></i>
 					<strong>Custom Prompts</strong>
-					{customizedCount > 0 && (
+					{totalCustomized > 0 && (
 						<span className="bt-prompts-count">
-							({customizedCount} customized)
+							({totalCustomized} customized)
 						</span>
 					)}
 				</div>
 				<small>
-					Click to customize extraction prompts for different models
+					Click to customize extraction prompts and temperatures
 				</small>
 			</div>
 
@@ -266,7 +331,9 @@ function PromptsSection({ customPrompts, onUpdatePrompt }: PromptsSectionProps) 
 							key={def.key}
 							definition={def}
 							customPrompts={customPrompts}
+							customTemperatures={customTemperatures}
 							onSave={onUpdatePrompt}
+							onSaveTemperature={onUpdateTemperature}
 						/>
 					))}
 				</div>
@@ -288,8 +355,8 @@ function SettingsPanel() {
 		const context = SillyTavern.getContext();
 		const connectionManager = context.extensionSettings?.connectionManager as
 			| {
-					profiles?: ConnectionProfile[];
-			  }
+				profiles?: ConnectionProfile[];
+			}
 			| undefined;
 		setProfiles(connectionManager?.profiles || []);
 	}, []);
@@ -346,6 +413,19 @@ function SettingsPanel() {
 			handleUpdate('customPrompts', newCustomPrompts);
 		},
 		[settings.customPrompts, handleUpdate],
+	);
+
+	const handleTemperatureUpdate = useCallback(
+		(key: PromptKey, value: number | null) => {
+			const newCustomTemperatures = { ...settings.customTemperatures };
+			if (value === null) {
+				delete newCustomTemperatures[key];
+			} else {
+				newCustomTemperatures[key] = value;
+			}
+			handleUpdate('customTemperatures', newCustomTemperatures);
+		},
+		[settings.customTemperatures, handleUpdate],
 	);
 
 	return (
@@ -493,7 +573,9 @@ function SettingsPanel() {
 			{/* Custom Prompts */}
 			<PromptsSection
 				customPrompts={settings.customPrompts}
+				customTemperatures={settings.customTemperatures}
 				onUpdatePrompt={handlePromptUpdate}
+				onUpdateTemperature={handleTemperatureUpdate}
 			/>
 		</div>
 	);
