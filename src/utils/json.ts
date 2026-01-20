@@ -18,29 +18,150 @@ export interface ParseOptions {
 // ============================================
 
 /**
+ * Fix directional/smart quotes to straight quotes.
+ * " " „ → "
+ * ' ' ‚ → '
+ */
+function repairSmartQuotes(jsonStr: string): string {
+	return jsonStr
+		.replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+		.replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
+}
+
+/**
+ * Fix single-quoted strings to double-quoted.
+ * Uses a state machine approach for reliability.
+ */
+function repairSingleQuotes(jsonStr: string): string {
+	const result: string[] = [];
+	let i = 0;
+	let inDoubleQuote = false;
+	let inSingleQuote = false;
+
+	while (i < jsonStr.length) {
+		const char = jsonStr[i];
+		const prevChar = i > 0 ? jsonStr[i - 1] : '';
+
+		if (char === '"' && prevChar !== '\\') {
+			if (!inSingleQuote) {
+				inDoubleQuote = !inDoubleQuote;
+			}
+			result.push(char);
+		} else if (char === "'" && prevChar !== '\\') {
+			if (!inDoubleQuote) {
+				// Convert single quote to double quote
+				result.push('"');
+				inSingleQuote = !inSingleQuote;
+			} else {
+				// Inside double-quoted string, keep as-is
+				result.push(char);
+			}
+		} else {
+			result.push(char);
+		}
+		i++;
+	}
+
+	return result.join('');
+}
+
+/**
  * Fix unquoted keys in JSON strings.
  * Converts: { footwear: null } -> { "footwear": null }
  */
 function repairUnquotedKeys(jsonStr: string): string {
-	// Match unquoted keys after { or , (with optional whitespace/newlines)
-	// Captures: delimiter, key name, colon
-	return jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+	return jsonStr.replace(
+		/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g,
+		'$1"$2"$3',
+	);
+}
+
+/**
+ * Fix unquoted keys with trailing apostrophe typo.
+ * mood': → mood:
+ * Must run before repairUnquotedKeys and repairSingleQuotes.
+ */
+function repairUnquotedKeyApostropheTypo(jsonStr: string): string {
+	// Match: after { or , (with any whitespace including newlines),
+	// an identifier followed by apostrophe, then colon
+	return jsonStr.replace(
+		/([{,][\s]*)([a-zA-Z_][a-zA-Z0-9_]*)'([\s]*:)/g,
+		'$1$2$3',
+	);
+}
+
+/**
+ * Fix double-quoted keys with trailing apostrophe typo before colon.
+ * "mood': → "mood":
+ */
+function repairKeyApostropheTypo(jsonStr: string): string {
+	return jsonStr.replace(/"([^"]+)'(\s*:)/g, '"$1"$2');
+}
+
+/**
+ * Fix the bizarre '. pattern that appears in some malformed output.
+ * jacket'.null → jacket: null
+ */
+function repairDotApostropheTypo(jsonStr: string): string {
+	return jsonStr.replace(/'\.(\s*)/g, ': ');
+}
+
+/**
+ * Fix unquoted string values (risky but sometimes necessary).
+ * Only attempts to fix values that look like unquoted strings.
+ */
+function repairUnquotedValues(jsonStr: string): string {
+	return jsonStr.replace(
+		/:\s*([a-zA-Z][^,}\]\n]*?)(\s*[,}\]])/g,
+		(match, value, ending) => {
+			const trimmed = value.trim();
+
+			// Don't quote JSON literals
+			if (['null', 'true', 'false'].includes(trimmed)) {
+				return `: ${trimmed}${ending}`;
+			}
+
+			// Don't quote if already quoted
+			if (/^["'].*["']$/.test(trimmed)) {
+				return match;
+			}
+
+			// Don't quote numbers
+			if (/^-?\d+\.?\d*$/.test(trimmed)) {
+				return `: ${trimmed}${ending}`;
+			}
+
+			// Quote the unquoted string value
+			const escaped = trimmed.replace(/"/g, '\\"');
+			return `: "${escaped}"${ending}`;
+		},
+	);
 }
 
 /**
  * Apply all repair functions to a JSON string.
- * Add new repair functions here as needed.
+ * Order matters - some repairs depend on others running first.
  */
 function repairJson(jsonStr: string): string {
 	let repaired = jsonStr;
 
-	// Apply repairs in sequence
+	// Phase 1: Normalize smart quote characters to straight quotes
+	repaired = repairSmartQuotes(repaired);
+
+	// Phase 2: Fix apostrophe typos BEFORE single quote conversion
+	// (otherwise the state machine thinks stray apostrophes are string delimiters)
+	repaired = repairUnquotedKeyApostropheTypo(repaired);
+	repaired = repairKeyApostropheTypo(repaired);
+	repaired = repairDotApostropheTypo(repaired);
+
+	// Phase 3: Convert single quotes to double quotes
+	repaired = repairSingleQuotes(repaired);
+
+	// Phase 4: Fix unquoted keys
 	repaired = repairUnquotedKeys(repaired);
 
-	// Add more repairs here as needed:
-	// repaired = repairTrailingCommas(repaired);
-	// repaired = repairSingleQuotes(repaired);
-	// etc.
+	// Phase 5: Fix unquoted values (riskiest, run last)
+	repaired = repairUnquotedValues(repaired);
 
 	return repaired;
 }

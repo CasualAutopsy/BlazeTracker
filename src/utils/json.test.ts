@@ -160,6 +160,220 @@ describe('parseJsonResponse', () => {
 		});
 	});
 
+	describe('JSON repair - smart quotes', () => {
+		it('repairs left/right double quotes', () => {
+			const input = '{"name": "test"}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('repairs mixed smart quotes', () => {
+			const input = '{"name": "test", "value": "hello"}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test', value: 'hello' });
+		});
+	});
+
+	describe('JSON repair - single quotes', () => {
+		it('repairs single-quoted keys', () => {
+			const input = "{'name': 'test'}";
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('repairs single-quoted values', () => {
+			const input = '{"name": \'test\'}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('repairs single-quoted array elements', () => {
+			const input = "{'items': ['a', 'b', 'c']}";
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ items: ['a', 'b', 'c'] });
+		});
+
+		it('repairs mixed quote styles', () => {
+			const input = `{"name": 'test', 'value': "hello"}`;
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test', value: 'hello' });
+		});
+	});
+
+	describe('JSON repair - key apostrophe typos', () => {
+		it('repairs key with trailing apostrophe', () => {
+			const input = `{"mood': ["happy"]}`;
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ mood: ['happy'] });
+		});
+
+		it('repairs multiple keys with trailing apostrophes', () => {
+			const input = `{"name': "test", "value': 123}`;
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test', value: 123 });
+		});
+	});
+
+	describe('JSON repair - unquoted string values', () => {
+		it('repairs simple unquoted string value', () => {
+			const input = '{"name": test}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: 'test' });
+		});
+
+		it('preserves null values', () => {
+			const input = '{name: null}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ name: null });
+		});
+
+		it('preserves boolean values', () => {
+			const input = '{active: true, disabled: false}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ active: true, disabled: false });
+		});
+
+		it('preserves number values', () => {
+			const input = '{count: 42, price: 19.99}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ count: 42, price: 19.99 });
+		});
+
+		it('repairs unquoted string with spaces', () => {
+			const input = '{"torso": red blouse}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ torso: 'red blouse' });
+		});
+
+		it('repairs unquoted string with hyphens', () => {
+			const input = '{"style": relaxed-fit hoodie}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ style: 'relaxed-fit hoodie' });
+		});
+	});
+
+	describe('JSON repair - combined issues', () => {
+		it('handles multiple repair types together', () => {
+			const input = `{
+				name: 'Elena',
+				mood': ["happy"],
+				outfit: {
+					head: null,
+					torso: red blouse
+				}
+			}`;
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({
+				name: 'Elena',
+				mood: ['happy'],
+				outfit: {
+					head: null,
+					torso: 'red blouse',
+				},
+			});
+		});
+	});
+
+	describe('JSON repair - value preservation', () => {
+		it('preserves null values with unquoted keys', () => {
+			const input = '{head: null, jacket: null, torso: null}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ head: null, jacket: null, torso: null });
+		});
+
+		it('preserves null in nested objects', () => {
+			const input = '{outfit: {head: null, footwear: null}}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ outfit: { head: null, footwear: null } });
+			expect((result as { outfit: { head: unknown } }).outfit.head).toBeNull();
+		});
+
+		it('preserves integer values', () => {
+			const input = '{count: 42, year: 2024, negative: -5}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ count: 42, year: 2024, negative: -5 });
+			expect(typeof (result as { count: unknown }).count).toBe('number');
+		});
+
+		it('preserves float values', () => {
+			const input = '{temperature: 72.5, price: 19.99, ratio: 0.5}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ temperature: 72.5, price: 19.99, ratio: 0.5 });
+			expect(typeof (result as { temperature: unknown }).temperature).toBe('number');
+		});
+
+		it('preserves zero', () => {
+			const input = '{count: 0, value: 0.0}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ count: 0, value: 0.0 });
+			expect((result as { count: unknown }).count).toBe(0);
+		});
+
+		it('preserves boolean true', () => {
+			const input = '{active: true, enabled: true}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ active: true, enabled: true });
+			expect((result as { active: unknown }).active).toBe(true);
+		});
+
+		it('preserves boolean false', () => {
+			const input = '{active: false, disabled: false}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ active: false, disabled: false });
+			expect((result as { active: unknown }).active).toBe(false);
+		});
+
+		it('preserves mixed primitives in complex structure', () => {
+			const input = `{
+				name: "Test",
+				count: 42,
+				price: 19.99,
+				active: true,
+				deleted: false,
+				parent: null,
+				tags: ["a", "b"],
+				nested: {
+					value: 0,
+					empty: null
+				}
+			}`;
+			const result = parseJsonResponse(input) as Record<string, unknown>;
+			expect(result.count).toBe(42);
+			expect(result.price).toBe(19.99);
+			expect(result.active).toBe(true);
+			expect(result.deleted).toBe(false);
+			expect(result.parent).toBeNull();
+			expect((result.nested as Record<string, unknown>).value).toBe(0);
+			expect((result.nested as Record<string, unknown>).empty).toBeNull();
+		});
+
+		it('preserves null in arrays', () => {
+			const input = '{items: [null, "a", null, "b"]}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ items: [null, 'a', null, 'b'] });
+		});
+
+		it('preserves numbers in arrays', () => {
+			const input = '{values: [1, 2.5, -3, 0]}';
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ values: [1, 2.5, -3, 0] });
+		});
+
+		it('does not quote null even with single quote repairs active', () => {
+			const input = "{'head': null, 'jacket': null}";
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ head: null, jacket: null });
+			expect((result as { head: unknown }).head).toBeNull();
+		});
+
+		it('does not quote numbers even with single quote repairs active', () => {
+			const input = "{'count': 42, 'price': 19.99}";
+			const result = parseJsonResponse(input);
+			expect(result).toEqual({ count: 42, price: 19.99 });
+			expect(typeof (result as { count: unknown }).count).toBe('number');
+		});
+	});
+
 	describe('error handling', () => {
 		it('throws on completely invalid JSON', () => {
 			expect(() => parseJsonResponse('not json at all')).toThrow();
@@ -371,7 +585,7 @@ describe('isObject', () => {
 	});
 
 	it('returns false for function', () => {
-		expect(isObject(() => {})).toBe(false);
+		expect(isObject(() => { })).toBe(false);
 	});
 
 	it('returns true for Object.create(null)', () => {
