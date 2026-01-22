@@ -38698,6 +38698,49 @@ function abortCurrentExtraction() {
     }
 }
 // ============================================
+// Default Values (for when extraction is disabled)
+// ============================================
+function getDefaultTime() {
+    return {
+        year: new Date().getFullYear(),
+        month: 6,
+        day: 15,
+        hour: 12,
+        minute: 0,
+        second: 0,
+        dayOfWeek: 'Monday',
+    };
+}
+function getDefaultLocation() {
+    return {
+        area: 'Unknown Area',
+        place: 'Unknown Place',
+        position: 'Main area',
+        props: [],
+    };
+}
+function getDefaultClimate() {
+    return {
+        weather: 'sunny',
+        temperature: 70,
+    };
+}
+function getDefaultCharacters() {
+    return [];
+}
+function getDefaultScene() {
+    return {
+        topic: 'Scene in progress',
+        tone: 'neutral',
+        tension: {
+            level: 'relaxed',
+            direction: 'stable',
+            type: 'conversation',
+        },
+        recentEvents: ['Scene in progress'],
+    };
+}
+// ============================================
 // Main Extraction Orchestrator
 // ============================================
 async function extractState(context, messageId, previousState, abortSignal, options = {}) {
@@ -38724,8 +38767,17 @@ async function extractState(context, messageId, previousState, abortSignal, opti
         // Determine if this is an assistant message (for scene extraction)
         const currentMessage = context.chat[messageId];
         const isAssistantMessage = currentMessage?.is_user === false;
-        const shouldRunScene = options.forceSceneExtraction ||
-            (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.shouldExtractScene)(messageId, isAssistantMessage);
+        const shouldRunScene = settings.trackScene !== false &&
+            (options.forceSceneExtraction ||
+                (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.shouldExtractScene)(messageId, isAssistantMessage));
+        // Configure enabled steps for progress display
+        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setEnabledSteps)({
+            time: settings.trackTime !== false,
+            location: settings.trackLocation !== false,
+            climate: settings.trackClimate !== false,
+            characters: settings.trackCharacters !== false,
+            scene: shouldRunScene,
+        });
         // ========================================
         // STEP 0: Initialize time tracker from previous state
         // ========================================
@@ -38737,58 +38789,90 @@ async function extractState(context, messageId, previousState, abortSignal, opti
         // ========================================
         const { formattedMessages, characterInfo, userInfo } = prepareExtractionContext(context, messageId, lastXMessages, previousState);
         // ========================================
-        // STEP 1: Extract Time
+        // STEP 1: Extract Time (if enabled)
         // ========================================
-        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('time', shouldRunScene);
-        let narrativeTime = previousState?.time ?? getDefaultTime();
+        let narrativeTime;
         if (settings.trackTime !== false) {
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('time');
             narrativeTime = await (0,_extractTime__WEBPACK_IMPORTED_MODULE_2__.extractTime)(!isInitial, formattedMessages, abortController.signal);
         }
+        else {
+            // Use previous or default (undefined means not tracked)
+            narrativeTime = previousState?.time;
+        }
         // ========================================
-        // STEP 2: Extract Location
+        // STEP 2: Extract Location (if enabled)
         // ========================================
-        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('location', shouldRunScene);
-        let location = await (0,_extractLocation__WEBPACK_IMPORTED_MODULE_3__.extractLocation)(isInitial, formattedMessages, isInitial ? characterInfo : '', previousState?.location ?? null, abortController.signal);
+        let location;
+        if (settings.trackLocation !== false) {
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('location');
+            location = await (0,_extractLocation__WEBPACK_IMPORTED_MODULE_3__.extractLocation)(isInitial, formattedMessages, isInitial ? characterInfo : '', previousState?.location ?? null, abortController.signal);
+        }
+        else {
+            // Use previous or undefined
+            location = previousState?.location;
+        }
         // ========================================
-        // STEP 3: Extract Climate
+        // STEP 3: Extract Climate (if enabled)
         // ========================================
-        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('climate', shouldRunScene);
-        const climate = await (0,_extractClimate__WEBPACK_IMPORTED_MODULE_4__.extractClimate)(isInitial, formattedMessages, narrativeTime, location, isInitial ? characterInfo : '', previousState?.climate ?? null, abortController.signal);
+        let climate;
+        if (settings.trackClimate !== false) {
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('climate');
+            // Climate extraction needs time and location - use defaults if not available
+            const timeForClimate = narrativeTime ?? getDefaultTime();
+            const locationForClimate = location ?? getDefaultLocation();
+            climate = await (0,_extractClimate__WEBPACK_IMPORTED_MODULE_4__.extractClimate)(isInitial, formattedMessages, timeForClimate, locationForClimate, isInitial ? characterInfo : '', previousState?.climate ?? null, abortController.signal);
+        }
+        else {
+            // Use previous or undefined
+            climate = previousState?.climate;
+        }
         // ========================================
-        // STEP 4: Extract Characters
+        // STEP 4: Extract Characters (if enabled)
         // ========================================
-        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('characters', shouldRunScene);
-        let characters = await (0,_extractCharacters__WEBPACK_IMPORTED_MODULE_5__.extractCharacters)(isInitial, formattedMessages, location, isInitial ? userInfo : '', isInitial ? characterInfo : '', previousState?.characters ?? null, abortController.signal);
-        // ========================================
-        // STEP 4.5: Post-process outfits
-        // ========================================
-        // Fix LLM tendency to write "item (removed)" instead of null
-        // and migrate removed items to location props
-        const cleanup = cleanupOutfitsAndMoveProps(characters, location);
-        characters = cleanup.characters;
-        location = cleanup.location;
-        if (cleanup.movedItems.length > 0) {
-            console.log('[BlazeTracker] Moved removed clothing to props:', cleanup.movedItems);
+        let characters;
+        if (settings.trackCharacters !== false) {
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('characters');
+            // Characters extraction uses location - use default if not available
+            const locationForCharacters = location ?? getDefaultLocation();
+            characters = await (0,_extractCharacters__WEBPACK_IMPORTED_MODULE_5__.extractCharacters)(isInitial, formattedMessages, locationForCharacters, isInitial ? userInfo : '', isInitial ? characterInfo : '', previousState?.characters ?? null, abortController.signal);
+            // ========================================
+            // STEP 4.5: Post-process outfits (only if we have location)
+            // ========================================
+            if (location) {
+                const cleanup = cleanupOutfitsAndMoveProps(characters, location);
+                characters = cleanup.characters;
+                location = cleanup.location;
+                if (cleanup.movedItems.length > 0) {
+                    console.log('[BlazeTracker] Moved removed clothing to props:', cleanup.movedItems);
+                }
+            }
+        }
+        else {
+            // Use previous or undefined
+            characters = previousState?.characters;
         }
         // ========================================
         // STEP 5: Extract Scene (conditional)
         // ========================================
         let scene;
         if (shouldRunScene) {
-            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('scene', shouldRunScene);
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('scene');
             // Scene needs at least 2 messages for tension analysis
             const sceneMessages = formatMessagesForScene(context, messageId, lastXMessages, previousState);
             const isInitialScene = !previousState?.scene;
-            scene = await (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.extractScene)(isInitialScene, sceneMessages, characters, isInitialScene ? userInfo : '', isInitialScene ? characterInfo : '', previousState?.scene ?? null, abortController.signal);
+            // Use characters for context if available, otherwise empty
+            const charactersForScene = characters ?? [];
+            scene = await (0,_extractScene__WEBPACK_IMPORTED_MODULE_6__.extractScene)(isInitialScene, sceneMessages, charactersForScene, isInitialScene ? userInfo : '', isInitialScene ? characterInfo : '', previousState?.scene ?? null, abortController.signal);
         }
-        else {
-            // Carry forward previous scene or create default
+        else if (settings.trackScene !== false) {
+            // Carry forward previous scene
             scene = previousState?.scene;
         }
         // ========================================
         // STEP 6: Assemble Final State
         // ========================================
-        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('complete', shouldRunScene);
+        (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('complete');
         const state = {
             time: narrativeTime,
             location,
@@ -38802,7 +38886,7 @@ async function extractState(context, messageId, previousState, abortSignal, opti
         extractionCount--;
         if (extractionCount === 0) {
             setSendButtonState(false);
-            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('idle', true);
+            (0,_extractionProgress__WEBPACK_IMPORTED_MODULE_8__.setExtractionStep)('idle');
         }
         if (currentAbortController === abortController) {
             currentAbortController = null;
@@ -38870,17 +38954,6 @@ function prepareExtractionContext(context, messageId, lastXMessages, previousSta
         .replace(/\{\{user\}\}/gi, context.name1);
     const characterInfo = `Name: ${context.name2}\nDescription: ${charDescription}`;
     return { formattedMessages, characterInfo, userInfo };
-}
-function getDefaultTime() {
-    return {
-        year: new Date().getFullYear(),
-        month: 6,
-        day: 15,
-        hour: 12,
-        minute: 0,
-        second: 0,
-        dayOfWeek: 'Monday',
-    };
 }
 // ============================================
 // Outfit Cleanup Post-Processing
@@ -39260,9 +39333,11 @@ function clamp(value, min, max) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   getEnabledSteps: () => (/* binding */ getEnabledSteps),
 /* harmony export */   getExtractionStep: () => (/* binding */ getExtractionStep),
 /* harmony export */   getStepLabel: () => (/* binding */ getStepLabel),
 /* harmony export */   onExtractionProgress: () => (/* binding */ onExtractionProgress),
+/* harmony export */   setEnabledSteps: () => (/* binding */ setEnabledSteps),
 /* harmony export */   setExtractionStep: () => (/* binding */ setExtractionStep)
 /* harmony export */ });
 // ============================================
@@ -39273,8 +39348,16 @@ __webpack_require__.r(__webpack_exports__);
 // ============================================
 let currentStep = 'idle';
 let progressCallback = null;
-// Steps in order (scene is optional, handled separately)
-const EXTRACTION_STEPS = ['time', 'location', 'climate', 'characters', 'scene'];
+// Default: all steps enabled
+let enabledSteps = {
+    time: true,
+    location: true,
+    climate: true,
+    characters: true,
+    scene: true,
+};
+// All possible extraction steps (in order)
+const ALL_EXTRACTION_STEPS = ['time', 'location', 'climate', 'characters', 'scene'];
 // ============================================
 // Public API
 // ============================================
@@ -39285,23 +39368,34 @@ function onExtractionProgress(callback) {
     progressCallback = callback;
 }
 /**
+ * Configure which extraction steps are enabled for the current extraction.
+ * Call this before starting extraction to ensure progress shows correct totals.
+ */
+function setEnabledSteps(steps) {
+    enabledSteps = { ...steps };
+}
+/**
+ * Get the list of currently enabled extraction steps.
+ */
+function getEnabledSteps() {
+    return ALL_EXTRACTION_STEPS.filter(step => enabledSteps[step]);
+}
+/**
  * Set the current extraction step and notify listeners.
  */
-function setExtractionStep(step, includeScene = true) {
+function setExtractionStep(step) {
     currentStep = step;
     if (progressCallback) {
-        const steps = includeScene
-            ? EXTRACTION_STEPS
-            : EXTRACTION_STEPS.filter(s => s !== 'scene');
+        const activeSteps = getEnabledSteps();
         const stepIndex = step === 'idle'
             ? 0
             : step === 'complete'
-                ? steps.length
-                : steps.indexOf(step);
+                ? activeSteps.length
+                : activeSteps.indexOf(step);
         progressCallback({
             step,
             stepIndex: Math.max(0, stepIndex),
-            totalSteps: steps.length,
+            totalSteps: activeSteps.length,
         });
     }
 }
@@ -40084,53 +40178,69 @@ function getDayOrdinal(day) {
 }
 function formatStateForInjection(state) {
     const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_1__.getSettings)();
-    const showTime = settings.trackTime !== false;
-    const location = [state.location.area, state.location.place, state.location.position]
-        .filter(Boolean)
-        .join(' - ');
-    const props = state.location.props.join(', ');
-    const climate = state.climate ? formatClimate(state.climate) : '';
-    const characters = state.characters
-        .map(char => {
-        const parts = [`${char.name}: ${char.position}`];
-        if (char.activity)
-            parts.push(`doing: ${char.activity}`);
-        if (char.mood?.length)
-            parts.push(`mood: ${char.mood.join(', ')}`);
-        if (char.goals?.length)
-            parts.push(`goals: ${char.goals.join(', ')}`);
-        if (char.physicalState?.length)
-            parts.push(`physical: ${char.physicalState.join(', ')}`);
-        if (char.outfit)
-            parts.push(`wearing: ${formatOutfit(char.outfit)}`);
-        if (char.dispositions) {
-            const dispParts = Object.entries(char.dispositions).map(([name, feelings]) => `${name}: ${feelings.join(', ')}`);
-            if (dispParts.length)
-                parts.push(`feelings: ${dispParts.join('; ')}`);
-        }
-        return parts.join('; ');
-    })
-        .join('\n');
+    // Check what's enabled AND what data exists
+    const hasTime = settings.trackTime !== false && state.time;
+    const hasLocation = settings.trackLocation !== false && state.location;
+    const hasClimate = settings.trackClimate !== false && state.climate;
+    const hasScene = settings.trackScene !== false && state.scene;
+    const hasCharacters = settings.trackCharacters !== false && state.characters && state.characters.length > 0;
+    // If nothing is tracked/available, return empty
+    if (!hasTime && !hasLocation && !hasClimate && !hasScene && !hasCharacters) {
+        return '';
+    }
     let output = `[Scene State]`;
     // Scene info first - it's the narrative context
-    if (state.scene) {
+    if (hasScene && state.scene) {
         output += `\n${formatScene(state.scene)}`;
     }
-    // Only include time if tracking is enabled
-    if (showTime && state.time) {
+    // Time (if enabled and available)
+    if (hasTime && state.time) {
         const timeStr = formatNarrativeDateTime(state.time);
         output += `\nTime: ${timeStr}`;
     }
-    output += `
-Location: ${location}
-Nearby objects: ${props}`;
-    if (climate) {
+    // Location (if enabled and available)
+    if (hasLocation && state.location) {
+        const location = [state.location.area, state.location.place, state.location.position]
+            .filter(Boolean)
+            .join(' - ');
+        output += `\nLocation: ${location}`;
+        // Props are part of location
+        if (state.location.props && state.location.props.length > 0) {
+            const props = state.location.props.join(', ');
+            output += `\nNearby objects: ${props}`;
+        }
+    }
+    // Climate (if enabled and available)
+    if (hasClimate && state.climate) {
+        const climate = formatClimate(state.climate);
         output += `\nClimate: ${climate}`;
     }
-    output += `
-Characters present:
-${characters}
-[/Scene State]`;
+    // Characters (if enabled and available)
+    if (hasCharacters && state.characters) {
+        const characters = state.characters
+            .map(char => {
+            const parts = [`${char.name}: ${char.position}`];
+            if (char.activity)
+                parts.push(`doing: ${char.activity}`);
+            if (char.mood?.length)
+                parts.push(`mood: ${char.mood.join(', ')}`);
+            if (char.goals?.length)
+                parts.push(`goals: ${char.goals.join(', ')}`);
+            if (char.physicalState?.length)
+                parts.push(`physical: ${char.physicalState.join(', ')}`);
+            if (char.outfit)
+                parts.push(`wearing: ${formatOutfit(char.outfit)}`);
+            if (char.dispositions) {
+                const dispParts = Object.entries(char.dispositions).map(([name, feelings]) => `${name}: ${feelings.join(', ')}`);
+                if (dispParts.length)
+                    parts.push(`feelings: ${dispParts.join('; ')}`);
+            }
+            return parts.join('; ');
+        })
+            .join('\n');
+        output += `\nCharacters present:\n${characters}`;
+    }
+    output += `\n[/Scene State]`;
     return output;
 }
 function injectState(state) {
@@ -40140,6 +40250,11 @@ function injectState(state) {
         return;
     }
     const formatted = formatStateForInjection(state);
+    // If nothing to inject, clear the prompt
+    if (!formatted) {
+        context.setExtensionPrompt(EXTENSION_KEY, '', 0, 0);
+        return;
+    }
     // Inject at depth 0 (with most recent messages), position IN_CHAT
     // Position 1 = after main prompt, before chat
     // Depth 0 = at the end (near most recent messages)
@@ -40340,7 +40455,13 @@ const defaultSettings = {
     lastXMessages: 10,
     maxResponseTokens: 4000,
     displayPosition: 'below',
+    // All extractions enabled by default
     trackTime: true,
+    trackLocation: true,
+    trackClimate: true,
+    trackCharacters: true,
+    trackScene: true,
+    // Other defaults
     leapThresholdMinutes: 20,
     temperatureUnit: 'fahrenheit',
     timeFormat: '24h',
@@ -40481,12 +40602,10 @@ function PromptEditor({ definition, customPrompts, customTemperatures, onSave, o
 function PromptsSection({ customPrompts, customTemperatures, onUpdatePrompt, onUpdateTemperature, }) {
     const [isExpanded, setIsExpanded] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
     const definitions = (0,_extractors_prompts__WEBPACK_IMPORTED_MODULE_5__.getAllPromptDefinitions)();
-    // Defensive: customTemperatures may be undefined for existing users
-    const temps = customTemperatures ?? {};
-    const customizedPromptCount = definitions.filter(d => !!customPrompts[d.key]).length;
-    const customizedTempCount = definitions.filter(d => d.key in temps).length;
-    const totalCustomized = customizedPromptCount + customizedTempCount;
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-header", onClick: () => setIsExpanded(!isExpanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-title", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid fa-chevron-${isExpanded ? 'down' : 'right'}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Custom Prompts" }), totalCustomized > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-prompts-count", children: ["(", totalCustomized, " customized)"] }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Click to customize extraction prompts and temperatures" })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-prompts-list", children: definitions.map(def => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptEditor, { definition: def, customPrompts: customPrompts, customTemperatures: customTemperatures, onSave: onUpdatePrompt, onSaveTemperature: onUpdateTemperature }, def.key))) }))] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-prompts-header", onClick: () => setIsExpanded(!isExpanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}` }), ' ', "Custom Prompts"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Click to customize extraction prompts" })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-prompts-list", children: definitions.map(def => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(PromptEditor, { definition: def, customPrompts: customPrompts, customTemperatures: customTemperatures, onSave: onUpdatePrompt, onSaveTemperature: onUpdateTemperature }, def.key))) }))] }));
+}
+function ExtractionTogglesSection({ settings, onToggle }) {
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-extraction-toggles", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-section-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Extraction Types" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Enable or disable specific extraction modules" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckboxField, { id: "blazetracker-tracktime", label: "Time Tracking", description: "Extract and track narrative date/time", checked: settings.trackTime, onChange: checked => onToggle('trackTime', checked) }), settings.trackTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-nested-setting", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(NumberField, { id: "blazetracker-leapthreshold", label: "Leap Threshold (minutes)", description: "Cap consecutive time jumps to prevent 'double sleep' issues", value: settings.leapThresholdMinutes, min: 5, max: 1440, step: 5, onChange: v => onToggle('leapThresholdMinutes', v) }) })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckboxField, { id: "blazetracker-tracklocation", label: "Location Tracking", description: "Extract area, place, position, and nearby props", checked: settings.trackLocation, onChange: checked => onToggle('trackLocation', checked) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckboxField, { id: "blazetracker-trackclimate", label: "Climate Tracking", description: "Extract weather and temperature conditions", checked: settings.trackClimate, onChange: checked => onToggle('trackClimate', checked) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckboxField, { id: "blazetracker-trackcharacters", label: "Character Tracking", description: "Extract character positions, moods, outfits, and dispositions", checked: settings.trackCharacters, onChange: checked => onToggle('trackCharacters', checked) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckboxField, { id: "blazetracker-trackscene", label: "Scene Tracking", description: "Extract scene topic, tone, tension, and recent events", checked: settings.trackScene, onChange: checked => onToggle('trackScene', checked) })] }));
 }
 // ============================================
 // Main Settings Panel Component
@@ -40509,8 +40628,9 @@ function SettingsPanel() {
         document.querySelectorAll('.bt-state-root').forEach(el => el.remove());
         setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_4__.renderAllStates)(), 200);
     }, [handleUpdate]);
-    const handleTrackTimeChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((checked) => {
-        handleUpdate('trackTime', checked);
+    // Generic toggle handler for extraction settings
+    const handleExtractionToggle = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((key, value) => {
+        handleUpdate(key, value);
         setTimeout(() => (0,_stateDisplay__WEBPACK_IMPORTED_MODULE_4__.renderAllStates)(), 100);
     }, [handleUpdate]);
     const handleTempUnitChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((value) => {
@@ -40549,7 +40669,7 @@ function SettingsPanel() {
                 ], onChange: v => handleUpdate('autoMode', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(NumberField, { id: "blazetracker-lastx", label: "Max Messages to Include", description: "Max. number of recent messages to send for extraction context", value: settings.lastXMessages, min: 1, max: 50, step: 1, onChange: v => handleUpdate('lastXMessages', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(NumberField, { id: "blazetracker-maxtokens", label: "Max Response Tokens", description: "Maximum tokens for extraction response", value: settings.maxResponseTokens, min: 500, max: 8000, step: 100, onChange: v => handleUpdate('maxResponseTokens', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-position", label: "State Display Position", description: "Show state block above or below the message", value: settings.displayPosition, options: [
                     { value: 'below', label: 'Below message' },
                     { value: 'above', label: 'Above message' },
-                ], onChange: handlePositionChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckboxField, { id: "blazetracker-tracktime", label: "Enable Time Tracking", description: "Extract and track narrative date/time (requires additional LLM call per message)", checked: settings.trackTime, onChange: handleTrackTimeChange }), settings.trackTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(NumberField, { id: "blazetracker-leapthreshold", label: "Leap Threshold (minutes)", description: "Cap consecutive time jumps to prevent 'double sleep' issues", value: settings.leapThresholdMinutes, min: 5, max: 1440, step: 5, onChange: v => handleUpdate('leapThresholdMinutes', v) })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-tempunit", label: "Temperature Unit", description: "Display temperatures in Fahrenheit or Celsius", value: settings.temperatureUnit, options: [
+                ], onChange: handlePositionChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ExtractionTogglesSection, { settings: settings, onToggle: handleExtractionToggle }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-tempunit", label: "Temperature Unit", description: "Display temperatures in Fahrenheit or Celsius", value: settings.temperatureUnit, options: [
                     { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
                     { value: 'celsius', label: 'Celsius (°C)' },
                 ], onChange: handleTempUnitChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SelectField, { id: "blazetracker-timeformat", label: "Time Format", description: "Display time in 12-hour or 24-hour format", value: settings.timeFormat, options: [
@@ -40777,9 +40897,23 @@ function StateDisplay({ stateData, isExtracting, extractionStep }) {
     }
     const { state } = stateData;
     const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_8__.getSettings)();
-    const showTime = settings.trackTime !== false;
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), ' ', formatTime(state.time)] })), state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-climate", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid ${getWeatherIcon(state.climate.weather)}` }), state.climate.temperature !== undefined &&
-                                ` ${(0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_11__.formatTemperature)(state.climate.temperature, settings.temperatureUnit)}`] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), ' ', formatLocation(state.location)] })] }), state.scene ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SceneDisplay, { scene: state.scene })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-scene-pending", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-hourglass-half" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Scene analysis will happen after first character response" })] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details (", state.characters.length, " characters,", ' ', state.location.props.length, " props)"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-props-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-props-header", children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-props", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: state.location.props.map((prop, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("li", { children: prop }, idx))) }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-characters", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(Character, { character: char }, `${char.name}-${idx}`))) })] })] }));
+    // Determine what to show based on settings AND data availability
+    const showTime = settings.trackTime !== false && state.time;
+    const showLocation = settings.trackLocation !== false && state.location;
+    const showClimate = settings.trackClimate !== false && state.climate;
+    const showScene = settings.trackScene !== false && state.scene;
+    const showCharacters = settings.trackCharacters !== false && state.characters && state.characters.length > 0;
+    // If nothing to show, render nothing
+    const hasAnythingToShow = showTime || showLocation || showClimate || showScene || showCharacters;
+    if (!hasAnythingToShow) {
+        return null;
+    }
+    // Calculate details summary
+    const characterCount = state.characters?.length ?? 0;
+    const propsCount = state.location?.props?.length ?? 0;
+    const showDetails = (showCharacters && characterCount > 0) || (showLocation && propsCount > 0);
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(showTime || showClimate || showLocation) && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && state.time && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), ' ', formatTime(state.time)] })), showClimate && state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-climate", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid ${getWeatherIcon(state.climate.weather)}` }), state.climate.temperature !== undefined &&
+                                ` ${(0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_11__.formatTemperature)(state.climate.temperature, settings.temperatureUnit)}`] })), showLocation && state.location && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), ' ', formatLocation(state.location)] }))] })), showScene && state.scene ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(SceneDisplay, { scene: state.scene })) : showScene && !state.scene ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-scene-pending", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-hourglass-half" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Scene analysis will happen after first character response" })] })) : null, showDetails && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details", showCharacters && characterCount > 0 && ` (${characterCount} characters`, showLocation && propsCount > 0 && `${showCharacters && characterCount > 0 ? ', ' : ' ('}${propsCount} props`, (showCharacters && characterCount > 0) || (showLocation && propsCount > 0) ? ')' : ''] }), showLocation && state.location && state.location.props && state.location.props.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-props-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-props-header", children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-props", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { children: state.location.props.map((prop, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("li", { children: prop }, idx))) }) })] })), showCharacters && state.characters && state.characters.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-characters", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(Character, { character: char }, `${char.name}-${idx}`))) }))] }))] }));
 }
 // --- State Extraction ---
 function getPreviousState(context, beforeMessageId) {
@@ -41061,7 +41195,7 @@ function injectStyles() {
   \********************************/
 (module, __unused_webpack_exports, __webpack_require__) {
 
-module.exports = __webpack_require__.p + "b66578276c15375755c5.css";
+module.exports = __webpack_require__.p + "b1ef1f178d9815513791.css";
 
 /***/ },
 
@@ -41089,6 +41223,9 @@ __webpack_require__.r(__webpack_exports__);
  *
  * A form-based editor for TrackedState with validation against the schema.
  * Uses ST's popup system to display.
+ *
+ * Only shows sections for fields that exist in the state.
+ * Preserves optionality - undefined fields stay undefined.
  */
 
 
@@ -41148,35 +41285,6 @@ function getDayOfWeek(year, month, day) {
     const date = new Date(year, month - 1, day);
     return DAYS_OF_WEEK[date.getDay()];
 }
-function createEmptyScene() {
-    return {
-        topic: '',
-        tone: '',
-        tension: { level: 'relaxed', direction: 'stable', type: 'conversation' },
-        recentEvents: [],
-    };
-}
-function createEmptyTime() {
-    const now = new Date();
-    return {
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
-        day: now.getDate(),
-        hour: 12,
-        minute: 0,
-        second: 0,
-        dayOfWeek: DAYS_OF_WEEK[now.getDay()],
-    };
-}
-function createEmptyState() {
-    return {
-        time: createEmptyTime(),
-        location: { area: '', place: '', position: '', props: [] },
-        climate: { weather: 'sunny', temperature: 70 },
-        scene: createEmptyScene(),
-        characters: [],
-    };
-}
 function createEmptyCharacter() {
     return {
         name: '',
@@ -41197,64 +41305,110 @@ function createEmptyCharacter() {
         dispositions: {},
     };
 }
+function createEmptyTime() {
+    const now = new Date();
+    return {
+        year: now.getFullYear(),
+        month: now.getMonth() + 1,
+        day: now.getDate(),
+        hour: 12,
+        minute: 0,
+        second: 0,
+        dayOfWeek: DAYS_OF_WEEK[now.getDay()],
+    };
+}
+function createEmptyLocation() {
+    return {
+        area: '',
+        place: '',
+        position: '',
+        props: [],
+    };
+}
+function createEmptyClimate() {
+    return {
+        weather: 'sunny',
+        temperature: 70,
+    };
+}
+function createEmptyScene() {
+    return {
+        topic: '',
+        tone: '',
+        tension: {
+            level: 'relaxed',
+            direction: 'stable',
+            type: 'conversation',
+        },
+        recentEvents: [],
+    };
+}
 function cloneState(state) {
     return JSON.parse(JSON.stringify(state));
 }
 // --- Validation ---
 function validateState(state) {
     const errors = {};
-    // Scene
-    if (!state.scene?.topic?.trim()) {
-        errors['scene.topic'] = 'Topic is required';
+    // Scene (only validate if present)
+    if (state.scene) {
+        if (!state.scene.topic?.trim()) {
+            errors['scene.topic'] = 'Topic is required';
+        }
+        if (!state.scene.tone?.trim()) {
+            errors['scene.tone'] = 'Tone is required';
+        }
     }
-    if (!state.scene?.tone?.trim()) {
-        errors['scene.tone'] = 'Tone is required';
+    // Time (only validate if present)
+    if (state.time) {
+        if (state.time.year < 1 || state.time.year > 9999) {
+            errors['time.year'] = 'Year must be 1-9999';
+        }
+        if (state.time.month < 1 || state.time.month > 12) {
+            errors['time.month'] = 'Month must be 1-12';
+        }
+        const maxDay = getDaysInMonth(state.time.year, state.time.month);
+        if (state.time.day < 1 || state.time.day > maxDay) {
+            errors['time.day'] = `Day must be 1-${maxDay}`;
+        }
+        if (state.time.hour < 0 || state.time.hour > 23) {
+            errors['time.hour'] = 'Hour must be 0-23';
+        }
+        if (state.time.minute < 0 || state.time.minute > 59) {
+            errors['time.minute'] = 'Minute must be 0-59';
+        }
     }
-    // Time
-    if (state.time.year < 1 || state.time.year > 9999) {
-        errors['time.year'] = 'Year must be 1-9999';
+    // Location (only validate if present)
+    if (state.location) {
+        if (!state.location.area?.trim()) {
+            errors['location.area'] = 'Area is required';
+        }
+        if (!state.location.place?.trim()) {
+            errors['location.place'] = 'Place is required';
+        }
+        if (!state.location.position?.trim()) {
+            errors['location.position'] = 'Position is required';
+        }
+        if (!state.location.props?.length) {
+            errors['location.props'] = 'Props is required';
+        }
     }
-    if (state.time.month < 1 || state.time.month > 12) {
-        errors['time.month'] = 'Month must be 1-12';
-    }
-    const maxDay = getDaysInMonth(state.time.year, state.time.month);
-    if (state.time.day < 1 || state.time.day > maxDay) {
-        errors['time.day'] = `Day must be 1-${maxDay}`;
-    }
-    if (state.time.hour < 0 || state.time.hour > 23) {
-        errors['time.hour'] = 'Hour must be 0-23';
-    }
-    if (state.time.minute < 0 || state.time.minute > 59) {
-        errors['time.minute'] = 'Minute must be 0-59';
-    }
-    // Location
-    if (!state.location.area?.trim()) {
-        errors['location.area'] = 'Area is required';
-    }
-    if (!state.location.place?.trim()) {
-        errors['location.place'] = 'Place is required';
-    }
-    if (!state.location.position?.trim()) {
-        errors['location.position'] = 'Position is required';
-    }
-    if (!state.location.props.length) {
-        errors['location.props'] = 'Props is required';
-    }
-    // Climate
+    // Climate (only validate if present)
     if (state.climate) {
         if (!WEATHER_OPTIONS.includes(state.climate.weather)) {
             errors['climate.weather'] = 'Invalid weather';
         }
     }
-    // Characters
-    state.characters.forEach((char, idx) => {
-        if (!char.name?.trim()) {
-            errors[`char.${idx}.name`] = 'Name required';
-        }
-        if (!char.position?.trim()) {
-            errors[`char.${idx}.position`] = 'Position required';
-        }
-    });
+    // Characters (only validate if present)
+    if (state.characters) {
+        state.characters.forEach((char, idx) => {
+            if (!char.name?.trim()) {
+                errors[`char.${idx}.name`] = 'Name required';
+            }
+            if (!char.position?.trim()) {
+                errors[`char.${idx}.position`] = 'Position required';
+            }
+        });
+    }
     return errors;
 }
 // --- Sub-Components ---
@@ -41296,74 +41450,94 @@ function OutfitEditor({ outfit, onChange, }) {
     };
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-outfit-grid", children: OUTFIT_SLOTS.map(slot => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-outfit-slot", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: slot }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-outfit-row", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: outfit[slot] || '', onChange: e => update(slot, e.target.value), placeholder: "None" }), outfit[slot] && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => update(slot, null), className: "bt-x", children: "\u00D7" }))] })] }, slot))) }));
 }
-/** Dispositions editor - dynamic key-value pairs */
-function DispositionsEditor({ dispositions, onChange, otherNames, }) {
-    const [newTarget, setNewTarget] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('');
-    const addTarget = () => {
-        const target = newTarget.trim();
-        if (target && !(target in dispositions)) {
-            onChange({ ...dispositions, [target]: [] });
-            setNewTarget('');
+/** Dispositions editor - feelings toward other characters */
+function DispositionsEditor({ dispositions, otherNames, onChange, }) {
+    const [selectedName, setSelectedName] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('');
+    const addDisposition = (name) => {
+        if (name && !dispositions[name]) {
+            onChange({ ...dispositions, [name]: [] });
         }
+        setSelectedName('');
     };
-    const updateFeelings = (target, feelings) => {
-        onChange({ ...dispositions, [target]: feelings });
+    const updateFeelings = (name, feelings) => {
+        onChange({ ...dispositions, [name]: feelings });
     };
-    const removeTarget = (target) => {
-        const { [target]: _, ...rest } = dispositions;
+    const removeDisposition = (name) => {
+        const { [name]: _, ...rest } = dispositions;
         onChange(rest);
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-dispositions", children: [Object.entries(dispositions).map(([target, feelings]) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["\u2192 ", target] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => removeTarget(target), className: "bt-x-red", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: feelings, onChange: f => updateFeelings(target, f), placeholder: "Add feeling..." })] }, target))), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-row", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", { value: newTarget, onChange: e => setNewTarget(e.target.value), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: "", children: "+ Add disposition..." }), otherNames
-                                .filter(n => !(n in dispositions))
-                                .map(n => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: n, children: n }, n)))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: newTarget, onChange: e => setNewTarget(e.target.value), placeholder: "Or type name..." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: addTarget, disabled: !newTarget.trim(), children: "Add" })] })] }));
+    // Names not yet in dispositions
+    const availableNames = otherNames.filter(n => !dispositions[n]);
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-dispositions", children: [Object.entries(dispositions).map(([name, feelings]) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition-item", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-disposition-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-disposition-name", children: ["\u2192 ", name] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => removeDisposition(name), className: "bt-x", children: "\u00D7" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: feelings, onChange: f => updateFeelings(name, f), placeholder: "Add feeling..." })] }, name))), availableNames.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-disposition", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", { value: selectedName, onChange: e => setSelectedName(e.target.value), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: "", children: "Add feelings toward..." }), availableNames.map(name => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: name, children: name }, name)))] }), selectedName && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: () => addDisposition(selectedName), children: "+" }))] }))] }));
 }
-/** Single character editor */
+/** Character editor */
 function CharacterEditor({ character, index, onChange, onRemove, otherNames, errors, }) {
-    const [expanded, setExpanded] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(true);
-    const prefix = `char.${index}`;
     const update = (field, value) => {
         onChange({ ...character, [field]: value });
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-card", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-header", onClick: () => setExpanded(!expanded), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: `fa-solid fa-chevron-${expanded ? 'down' : 'right'}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-char-name", children: character.name || `Character ${index + 1}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: e => {
-                            e.stopPropagation();
-                            onRemove();
-                        }, className: "bt-x-red", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), expanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-body", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Name *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.name, onChange: e => update('name', e.target.value), className: errors[`${prefix}.name`]
-                                    ? 'bt-err'
-                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Position *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", { value: character.position, onChange: e => update('position', e.target.value), rows: 2, placeholder: "Physical position and orientation...", className: errors[`${prefix}.position`]
-                                    ? 'bt-err'
-                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Activity" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.activity || '', onChange: e => update('activity', e.target.value), placeholder: "Current activity..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Mood" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.mood || [], onChange: t => update('mood', t), placeholder: "Add mood..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Goals" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.goals || [], onChange: t => update('goals', t), placeholder: "Add goal..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Physical State" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.physicalState || [], onChange: t => update('physicalState', t), placeholder: "Add state..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-details", open: true, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("summary", { children: "Outfit" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(OutfitEditor, { outfit: character.outfit ||
-                                    createEmptyCharacter().outfit, onChange: o => update('outfit', o) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Dispositions (", Object.keys(character.dispositions ||
-                                        {}).length, ")"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DispositionsEditor, { dispositions: character.dispositions || {}, onChange: d => update('dispositions', d), otherNames: otherNames })] })] }))] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-char-editor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-char-name", children: character.name || `Character ${index + 1}` }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: e => {
+                                e.preventDefault();
+                                onRemove();
+                            }, className: "bt-x", children: "\u00D7" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-char-fields", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Name *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.name, onChange: e => update('name', e.target.value), className: errors[`char.${index}.name`] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Activity" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.activity || '', onChange: e => update('activity', e.target.value || undefined) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Position *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: character.position, onChange: e => update('position', e.target.value), className: errors[`char.${index}.position`] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Mood" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.mood || [], onChange: t => update('mood', t), placeholder: "anxious, hopeful..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Goals" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.goals || [], onChange: t => update('goals', t), placeholder: "find the artifact..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Physical State" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: character.physicalState || [], onChange: t => update('physicalState', t), placeholder: "tired, injured..." })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Outfit" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(OutfitEditor, { outfit: character.outfit, onChange: o => update('outfit', o) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Dispositions" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DispositionsEditor, { dispositions: character.dispositions || {}, otherNames: otherNames, onChange: d => update('dispositions', d) })] })] })] }) }));
 }
 // --- Main Component ---
 function StateEditor({ initialState, onSave, onCancel }) {
     const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_4__.getSettings)();
     const tempUnit = settings.temperatureUnit ?? 'fahrenheit';
-    const [state, setState] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(() => initialState ? cloneState(initialState) : createEmptyState());
+    // Clone the state to avoid mutating the original
+    // Keep undefined fields as undefined
+    const [state, setState] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(() => initialState ? cloneState(initialState) : {});
     const [errors, setErrors] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)({});
     const [tab, setTab] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('scene');
+    // Check what sections exist
+    const hasTime = state.time !== undefined;
+    const hasLocation = state.location !== undefined;
+    const hasClimate = state.climate !== undefined;
+    const hasScene = state.scene !== undefined;
+    const hasCharacters = state.characters !== undefined;
+    // Check if there's anything to show on the scene tab
+    const hasSceneTabContent = hasTime || hasLocation || hasClimate || hasScene;
+    // Ensure we're on a valid tab
+    (0,react__WEBPACK_IMPORTED_MODULE_1__.useEffect)(() => {
+        if (tab === 'scene' && !hasSceneTabContent && hasCharacters) {
+            setTab('chars');
+        }
+        else if (tab === 'chars' && !hasCharacters && hasSceneTabContent) {
+            setTab('scene');
+        }
+    }, [tab, hasSceneTabContent, hasCharacters]);
     // Scene context
     const updateScene = (field, value) => {
-        setState(s => ({
-            ...s,
-            scene: { ...(s.scene || createEmptyScene()), [field]: value },
-        }));
+        setState(s => {
+            if (!s.scene)
+                return s;
+            return {
+                ...s,
+                scene: { ...s.scene, [field]: value },
+            };
+        });
     };
     const updateTension = (field, value) => {
-        setState(s => ({
-            ...s,
-            scene: {
-                ...(s.scene || createEmptyScene()),
-                tension: {
-                    ...(s.scene?.tension || createEmptyScene().tension),
-                    [field]: value,
+        setState(s => {
+            if (!s.scene)
+                return s;
+            return {
+                ...s,
+                scene: {
+                    ...s.scene,
+                    tension: {
+                        ...s.scene.tension,
+                        [field]: value,
+                    },
                 },
-            },
-        }));
+            };
+        });
     };
     // Time - with automatic dayOfWeek calculation
     const updateTime = (field, value) => {
         setState(s => {
+            if (!s.time)
+                return s;
             const newTime = { ...s.time, [field]: value };
             // Recalculate dayOfWeek if date components change
             if (field === 'year' || field === 'month' || field === 'day') {
@@ -41379,35 +41553,76 @@ function StateEditor({ initialState, onSave, onCancel }) {
     };
     // Location
     const updateLocation = (field, value) => {
-        setState(s => ({ ...s, location: { ...s.location, [field]: value } }));
+        setState(s => {
+            if (!s.location)
+                return s;
+            return { ...s, location: { ...s.location, [field]: value } };
+        });
     };
     // Climate
     const updateClimate = (field, value) => {
-        setState(s => ({
-            ...s,
-            climate: {
-                ...(s.climate || { weather: 'sunny', temperature: 70 }),
-                [field]: value,
-            },
-        }));
+        setState(s => {
+            if (!s.climate)
+                return s;
+            return {
+                ...s,
+                climate: { ...s.climate, [field]: value },
+            };
+        });
     };
     // Characters
     const updateChar = (idx, char) => {
-        setState(s => ({
-            ...s,
-            characters: s.characters.map((c, i) => (i === idx ? char : c)),
-        }));
+        setState(s => {
+            if (!s.characters)
+                return s;
+            return {
+                ...s,
+                characters: s.characters.map((c, i) => (i === idx ? char : c)),
+            };
+        });
     };
     const addChar = () => {
-        setState(s => ({ ...s, characters: [...s.characters, createEmptyCharacter()] }));
+        setState(s => {
+            if (!s.characters)
+                return s;
+            return { ...s, characters: [...s.characters, createEmptyCharacter()] };
+        });
     };
     const removeChar = (idx) => {
-        setState(s => ({ ...s, characters: s.characters.filter((_, i) => i !== idx) }));
+        setState(s => {
+            if (!s.characters)
+                return s;
+            return { ...s, characters: s.characters.filter((_, i) => i !== idx) };
+        });
     };
-    const getOtherNames = (excludeIdx) => state.characters
+    const getOtherNames = (excludeIdx) => (state.characters || [])
         .filter((_, i) => i !== excludeIdx)
         .map(c => c.name)
         .filter(Boolean);
+    // Add missing sections
+    const addTime = () => setState(s => ({ ...s, time: createEmptyTime() }));
+    const addLocation = () => setState(s => ({ ...s, location: createEmptyLocation() }));
+    const addClimate = () => setState(s => ({ ...s, climate: createEmptyClimate() }));
+    const addScene = () => setState(s => ({ ...s, scene: createEmptyScene() }));
+    const addCharacters = () => setState(s => ({ ...s, characters: [] }));
+    // Remove sections (switch tabs if needed)
+    const removeTime = () => {
+        setState(s => { const { time, ...rest } = s; return rest; });
+    };
+    const removeLocation = () => {
+        setState(s => { const { location, ...rest } = s; return rest; });
+    };
+    const removeClimate = () => {
+        setState(s => { const { climate, ...rest } = s; return rest; });
+    };
+    const removeScene = () => {
+        setState(s => { const { scene, ...rest } = s; return rest; });
+    };
+    const removeCharacters = () => {
+        setState(s => { const { characters, ...rest } = s; return rest; });
+        // Switch to scene tab since characters tab will be gone
+        setTab('scene');
+    };
     // Save
     const handleSave = () => {
         const errs = validateState(state);
@@ -41417,71 +41632,52 @@ function StateEditor({ initialState, onSave, onCancel }) {
         }
     };
     const hasErrors = Object.keys(errors).length > 0;
-    // Calculate max days for current month
-    const maxDaysInMonth = getDaysInMonth(state.time.year, state.time.month);
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-tabs", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'scene' ? 'active' : ''}`, onClick: () => setTab('scene'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), " Scene"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'chars' ? 'active' : ''}`, onClick: () => setTab('chars'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-users" }), " Characters (", state.characters.length, ")"] })] }), tab === 'scene' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-clapperboard" }), ' ', "Context"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Topic *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene
-                                                    ?.topic ||
-                                                    '', onChange: e => updateScene('topic', e.target
-                                                    .value), placeholder: "3-5 words: main topic of interaction", className: errors['scene.topic']
+    // Calculate max days for current month (only if time exists)
+    const maxDaysInMonth = hasTime && state.time
+        ? getDaysInMonth(state.time.year, state.time.month)
+        : 31;
+    // Check what sections are missing (for add buttons)
+    const missingSections = {
+        time: !hasTime,
+        location: !hasLocation,
+        climate: !hasClimate,
+        scene: !hasScene,
+        characters: !hasCharacters,
+    };
+    const hasMissingSections = Object.values(missingSections).some(v => v);
+    // Component for adding missing sections
+    const AddSectionButtons = () => {
+        if (!hasMissingSections)
+            return null;
+        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-sections", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-add-sections-label", children: "Add section:" }), missingSections.scene && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addScene, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-clapperboard" }), " Scene"] })), missingSections.time && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addTime, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), " Time"] })), missingSections.location && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addLocation, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-map-marker-alt" }), " Location"] })), missingSections.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addClimate, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-cloud-sun" }), " Climate"] })), missingSections.characters && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addCharacters, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-users" }), " Characters"] }))] }));
+    };
+    // If nothing to edit at all, show add buttons
+    if (!hasSceneTabContent && !hasCharacters) {
+        return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-empty-state", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-info-circle" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("p", { children: "No state data to edit." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("p", { children: "Run extraction to populate, or add sections manually:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(AddSectionButtons, {})] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-actions", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: onCancel, className: "bt-btn", children: "Close" }) })] }));
+    }
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-tabs", children: [hasSceneTabContent && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'scene' ? 'active' : ''}`, onClick: () => setTab('scene'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), " Scene"] })), hasCharacters && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: `bt-tab ${tab === 'chars' ? 'active' : ''}`, onClick: () => setTab('chars'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-users" }), " Characters (", state.characters?.length || 0, ")"] }))] }), tab === 'scene' && hasSceneTabContent && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [hasScene && state.scene && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-clapperboard" }), ' ', "Context", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-section-remove", onClick: removeScene, title: "Remove section", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Topic *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene.topic, onChange: e => updateScene('topic', e.target.value), placeholder: "What's the scene about?", className: errors['scene.topic'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tone *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene.tone, onChange: e => updateScene('tone', e.target.value), placeholder: "Emotional atmosphere...", className: errors['scene.tone'] ? 'bt-err' : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tension Level" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene.tension.level, onChange: e => updateTension('level', e.target.value), children: TENSION_LEVELS.map(l => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: l, children: l.charAt(0).toUpperCase() +
+                                                        l.slice(1) }, l))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Direction" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene.tension.direction, onChange: e => updateTension('direction', e.target.value), children: TENSION_DIRECTIONS.map(d => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: d, children: d.charAt(0).toUpperCase() +
+                                                        d.slice(1) }, d))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Type" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene.tension.type, onChange: e => updateTension('type', e.target.value), children: TENSION_TYPES.map(t => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: t, children: t.charAt(0).toUpperCase() +
+                                                        t.slice(1) }, t))) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Recent Events" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(EventListEditor, { events: state.scene.recentEvents, onChange: e => updateScene('recentEvents', e) })] })] })), hasTime && state.time && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), " Time", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-section-remove", onClick: removeTime, title: "Remove section", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Year" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: 9999, value: state.time.year, onChange: e => updateTime('year', parseInt(e.target.value) ||
+                                                    2024), className: errors['time.year'] ? 'bt-err' : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Month" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.time.month, onChange: e => updateTime('month', parseInt(e.target.value)), className: errors['time.month'] ? 'bt-err' : '', children: MONTH_NAMES.map((name, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: idx + 1, children: name }, idx))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Day" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: maxDaysInMonth, value: state.time.day, onChange: e => updateTime('day', parseInt(e.target.value) || 1), className: errors['time.day']
                                                     ? 'bt-err'
-                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tone *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.scene?.tone ||
-                                                    '', onChange: e => updateScene('tone', e.target
-                                                    .value), placeholder: "2-3 words: emotional tone", className: errors['scene.tone']
+                                                    : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Hour (0-23)" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 23, value: state.time.hour, onChange: e => updateTime('hour', parseInt(e.target.value) || 0), className: errors['time.hour']
                                                     ? 'bt-err'
-                                                    : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tension Type" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension
-                                                    ?.type ||
-                                                    'conversation', onChange: e => updateTension('type', e.target
-                                                    .value), children: TENSION_TYPES.map(t => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: t, children: t }, t))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Tension Level" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension
-                                                    ?.level ||
-                                                    'relaxed', onChange: e => updateTension('level', e.target
-                                                    .value), children: TENSION_LEVELS.map(l => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: l, children: l }, l))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Direction" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.scene?.tension
-                                                    ?.direction ||
-                                                    'stable', onChange: e => updateTension('direction', e.target
-                                                    .value), children: TENSION_DIRECTIONS.map(d => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: d, children: d }, d))) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Recent Events" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(EventListEditor, { events: state.scene?.recentEvents ||
-                                            [], onChange: events => updateScene('recentEvents', events) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-calendar-clock" }), ' ', "Date & Time"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Year" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: 9999, value: state.time.year, onChange: e => updateTime('year', parseInt(e
-                                                    .target
-                                                    .value) || 2024), className: errors['time.year']
-                                                    ? 'bt-err'
-                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Month" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.time.month, onChange: e => updateTime('month', parseInt(e
-                                                    .target
-                                                    .value)), className: errors['time.month']
-                                                    ? 'bt-err'
-                                                    : '', children: MONTH_NAMES.map((m, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: idx +
-                                                        1, children: m }, m))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Day" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 1, max: maxDaysInMonth, value: state.time.day, onChange: e => updateTime('day', parseInt(e
-                                                    .target
-                                                    .value) || 1), className: errors['time.day']
-                                                    ? 'bt-err'
-                                                    : '' })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-3", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Hour (0-23)" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 23, value: state.time.hour, onChange: e => updateTime('hour', parseInt(e
-                                                    .target
-                                                    .value) || 0), className: errors['time.hour']
-                                                    ? 'bt-err'
-                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Minute" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 59, value: state.time.minute, onChange: e => updateTime('minute', parseInt(e
-                                                    .target
-                                                    .value) || 0), className: errors['time.minute']
+                                                    : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Minute" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", min: 0, max: 59, value: state.time.minute, onChange: e => updateTime('minute', parseInt(e.target.value) || 0), className: errors['time.minute']
                                                     ? 'bt-err'
                                                     : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Day of Week" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.time.dayOfWeek, disabled: true, style: {
                                                     opacity: 0.7,
                                                     cursor: 'not-allowed',
-                                                } })] })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-map-marker-alt" }), ' ', "Location"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Area *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.area, onChange: e => updateLocation('area', e.target.value), placeholder: "City, district, region...", className: errors['location.area']
+                                                } })] })] })] })), hasLocation && state.location && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-map-marker-alt" }), ' ', "Location", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-section-remove", onClick: removeLocation, title: "Remove section", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Area *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.area, onChange: e => updateLocation('area', e.target.value), placeholder: "City, district, region...", className: errors['location.area']
                                             ? 'bt-err'
                                             : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Place *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.place, onChange: e => updateLocation('place', e.target.value), placeholder: "Building, establishment, room...", className: errors['location.place']
                                             ? 'bt-err'
                                             : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Position *" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: state.location.position, onChange: e => updateLocation('position', e.target.value), placeholder: "Position within the place...", className: errors['location.position']
                                             ? 'bt-err'
-                                            : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: state.location.props || [], onChange: t => updateLocation('props', t), placeholder: "Add props..." })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-cloud-sun" }), ' ', "Climate"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Weather" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.climate
-                                                    ?.weather ||
-                                                    'sunny', onChange: e => updateClimate('weather', e.target
-                                                    .value), children: WEATHER_OPTIONS.map(w => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: w, children: w
-                                                        .charAt(0)
-                                                        .toUpperCase() +
+                                            : '' })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Props" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(TagInput, { tags: state.location.props || [], onChange: t => updateLocation('props', t), placeholder: "Add props..." })] })] })), hasClimate && state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("fieldset", { className: "bt-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("legend", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-cloud-sun" }), ' ', "Climate", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-section-remove", onClick: removeClimate, title: "Remove section", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-row-2", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Weather" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: state.climate.weather, onChange: e => updateClimate('weather', e.target.value), children: WEATHER_OPTIONS.map(w => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: w, children: w.charAt(0).toUpperCase() +
                                                         w.slice(1) }, w))) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-field", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", { children: ["Temperature (", tempUnit === 'celsius'
                                                         ? '°C'
-                                                        : '°F', ")"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", value: (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toDisplayTemp)(state.climate
-                                                    ?.temperature ??
-                                                    70, tempUnit), onChange: e => updateClimate('temperature', (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toStorageTemp)(parseInt(e
-                                                    .target
-                                                    .value) ||
-                                                    0, tempUnit)) })] })] })] })] })), tab === 'chars' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chars-list", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CharacterEditor, { character: char, index: idx, onChange: c => updateChar(idx, c), onRemove: () => removeChar(idx), otherNames: getOtherNames(idx), errors: errors }, idx))) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addChar, className: "bt-add-char", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-plus" }), " Add Character"] })] })), hasErrors && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-errors", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-exclamation-triangle" }), "Fix highlighted errors before saving."] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: onCancel, className: "bt-btn", children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: handleSave, className: "bt-btn bt-btn-primary", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-save" }), " Save"] })] })] }));
+                                                        : '°F', ")"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "number", value: (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toDisplayTemp)(state.climate.temperature, tempUnit), onChange: e => updateClimate('temperature', (0,_utils_temperatures__WEBPACK_IMPORTED_MODULE_3__.toStorageTemp)(parseInt(e.target.value) || 0, tempUnit)) })] })] })] })), (missingSections.scene || missingSections.time || missingSections.location || missingSections.climate) && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-sections", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-add-sections-label", children: "Add:" }), missingSections.scene && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addScene, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-clapperboard" }), " Scene"] })), missingSections.time && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addTime, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), " Time"] })), missingSections.location && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addLocation, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-map-marker-alt" }), " Location"] })), missingSections.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addClimate, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-cloud-sun" }), " Climate"] }))] }))] })), tab === 'chars' && hasCharacters && state.characters && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-panel", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-section-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Characters" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", className: "bt-section-remove", onClick: removeCharacters, title: "Remove all characters", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }), " Remove Section"] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chars-list", children: state.characters.map((char, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CharacterEditor, { character: char, index: idx, onChange: c => updateChar(idx, c), onRemove: () => removeChar(idx), otherNames: getOtherNames(idx), errors: errors }, idx))) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: addChar, className: "bt-add-char", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-plus" }), " Add Character"] })] })), tab === 'scene' && missingSections.characters && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-sections", style: { marginTop: '1rem', borderTop: '1px solid var(--SmartThemeBorderColor)', paddingTop: '1rem' }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-add-sections-label", children: "Add:" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: () => { addCharacters(); setTab('chars'); }, className: "bt-btn-small", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-users" }), " Characters"] })] })), hasErrors && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-errors", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-exclamation-triangle" }), "Fix highlighted errors before saving."] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", onClick: onCancel, className: "bt-btn", children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { type: "button", onClick: handleSave, className: "bt-btn bt-btn-primary", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-save" }), " Save"] })] })] }));
 }
 // --- Integration with SillyTavern Popup ---
 /**

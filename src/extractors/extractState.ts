@@ -10,7 +10,7 @@ import { extractClimate } from './extractClimate';
 import { extractCharacters } from './extractCharacters';
 import { extractScene, shouldExtractScene } from './extractScene';
 import { propAlreadyExists } from '../utils/clothingMatch';
-import { setExtractionStep } from './extractionProgress';
+import { setExtractionStep, setEnabledSteps } from './extractionProgress';
 
 // ============================================
 // Module State
@@ -81,6 +81,55 @@ export function abortCurrentExtraction(): void {
 }
 
 // ============================================
+// Default Values (for when extraction is disabled)
+// ============================================
+
+function getDefaultTime(): NarrativeDateTime {
+	return {
+		year: new Date().getFullYear(),
+		month: 6,
+		day: 15,
+		hour: 12,
+		minute: 0,
+		second: 0,
+		dayOfWeek: 'Monday',
+	};
+}
+
+function getDefaultLocation(): LocationState {
+	return {
+		area: 'Unknown Area',
+		place: 'Unknown Place',
+		position: 'Main area',
+		props: [],
+	};
+}
+
+function getDefaultClimate() {
+	return {
+		weather: 'sunny' as const,
+		temperature: 70,
+	};
+}
+
+function getDefaultCharacters(): Character[] {
+	return [];
+}
+
+function getDefaultScene(): Scene {
+	return {
+		topic: 'Scene in progress',
+		tone: 'neutral',
+		tension: {
+			level: 'relaxed',
+			direction: 'stable',
+			type: 'conversation',
+		},
+		recentEvents: ['Scene in progress'],
+	};
+}
+
+// ============================================
 // Main Extraction Orchestrator
 // ============================================
 
@@ -124,8 +173,18 @@ export async function extractState(
 		const currentMessage = context.chat[messageId];
 		const isAssistantMessage = currentMessage?.is_user === false;
 		const shouldRunScene =
-			options.forceSceneExtraction ||
-			shouldExtractScene(messageId, isAssistantMessage);
+			settings.trackScene !== false &&
+			(options.forceSceneExtraction ||
+				shouldExtractScene(messageId, isAssistantMessage));
+
+		// Configure enabled steps for progress display
+		setEnabledSteps({
+			time: settings.trackTime !== false,
+			location: settings.trackLocation !== false,
+			climate: settings.trackClimate !== false,
+			characters: settings.trackCharacters !== false,
+			scene: shouldRunScene,
+		});
 
 		// ========================================
 		// STEP 0: Initialize time tracker from previous state
@@ -145,74 +204,105 @@ export async function extractState(
 		);
 
 		// ========================================
-		// STEP 1: Extract Time
+		// STEP 1: Extract Time (if enabled)
 		// ========================================
-		setExtractionStep('time', shouldRunScene);
-
-		let narrativeTime: NarrativeDateTime = previousState?.time ?? getDefaultTime();
+		let narrativeTime: NarrativeDateTime | undefined;
 
 		if (settings.trackTime !== false) {
+			setExtractionStep('time');
+
 			narrativeTime = await extractTime(
 				!isInitial,
 				formattedMessages,
 				abortController.signal,
 			);
+		} else {
+			// Use previous or default (undefined means not tracked)
+			narrativeTime = previousState?.time;
 		}
 
 		// ========================================
-		// STEP 2: Extract Location
+		// STEP 2: Extract Location (if enabled)
 		// ========================================
-		setExtractionStep('location', shouldRunScene);
+		let location: LocationState | undefined;
 
-		let location = await extractLocation(
-			isInitial,
-			formattedMessages,
-			isInitial ? characterInfo : '',
-			previousState?.location ?? null,
-			abortController.signal,
-		);
+		if (settings.trackLocation !== false) {
+			setExtractionStep('location');
 
-		// ========================================
-		// STEP 3: Extract Climate
-		// ========================================
-		setExtractionStep('climate', shouldRunScene);
-
-		const climate = await extractClimate(
-			isInitial,
-			formattedMessages,
-			narrativeTime,
-			location,
-			isInitial ? characterInfo : '',
-			previousState?.climate ?? null,
-			abortController.signal,
-		);
+			location = await extractLocation(
+				isInitial,
+				formattedMessages,
+				isInitial ? characterInfo : '',
+				previousState?.location ?? null,
+				abortController.signal,
+			);
+		} else {
+			// Use previous or undefined
+			location = previousState?.location;
+		}
 
 		// ========================================
-		// STEP 4: Extract Characters
+		// STEP 3: Extract Climate (if enabled)
 		// ========================================
-		setExtractionStep('characters', shouldRunScene);
+		let climate: { weather: 'sunny' | 'cloudy' | 'snowy' | 'rainy' | 'windy' | 'thunderstorm'; temperature: number } | undefined;
 
-		let characters = await extractCharacters(
-			isInitial,
-			formattedMessages,
-			location,
-			isInitial ? userInfo : '',
-			isInitial ? characterInfo : '',
-			previousState?.characters ?? null,
-			abortController.signal,
-		);
+		if (settings.trackClimate !== false) {
+			setExtractionStep('climate');
+
+			// Climate extraction needs time and location - use defaults if not available
+			const timeForClimate = narrativeTime ?? getDefaultTime();
+			const locationForClimate = location ?? getDefaultLocation();
+
+			climate = await extractClimate(
+				isInitial,
+				formattedMessages,
+				timeForClimate,
+				locationForClimate,
+				isInitial ? characterInfo : '',
+				previousState?.climate ?? null,
+				abortController.signal,
+			);
+		} else {
+			// Use previous or undefined
+			climate = previousState?.climate;
+		}
 
 		// ========================================
-		// STEP 4.5: Post-process outfits
+		// STEP 4: Extract Characters (if enabled)
 		// ========================================
-		// Fix LLM tendency to write "item (removed)" instead of null
-		// and migrate removed items to location props
-		const cleanup = cleanupOutfitsAndMoveProps(characters, location);
-		characters = cleanup.characters;
-		location = cleanup.location;
+		let characters: Character[] | undefined;
 
-		if (cleanup.movedItems.length > 0) {
-			console.log('[BlazeTracker] Moved removed clothing to props:', cleanup.movedItems);
+		if (settings.trackCharacters !== false) {
+			setExtractionStep('characters');
+
+			// Characters extraction uses location - use default if not available
+			const locationForCharacters = location ?? getDefaultLocation();
+
+			characters = await extractCharacters(
+				isInitial,
+				formattedMessages,
+				locationForCharacters,
+				isInitial ? userInfo : '',
+				isInitial ? characterInfo : '',
+				previousState?.characters ?? null,
+				abortController.signal,
+			);
+
+			// ========================================
+			// STEP 4.5: Post-process outfits (only if we have location)
+			// ========================================
+			if (location) {
+				const cleanup = cleanupOutfitsAndMoveProps(characters, location);
+				characters = cleanup.characters;
+				location = cleanup.location;
+
+				if (cleanup.movedItems.length > 0) {
+					console.log('[BlazeTracker] Moved removed clothing to props:', cleanup.movedItems);
+				}
+			}
+		} else {
+			// Use previous or undefined
+			characters = previousState?.characters;
 		}
 
 		// ========================================
@@ -221,7 +311,7 @@ export async function extractState(
 		let scene: Scene | undefined;
 
 		if (shouldRunScene) {
-			setExtractionStep('scene', shouldRunScene);
+			setExtractionStep('scene');
 
 			// Scene needs at least 2 messages for tension analysis
 			const sceneMessages = formatMessagesForScene(
@@ -232,24 +322,28 @@ export async function extractState(
 			);
 
 			const isInitialScene = !previousState?.scene;
+
+			// Use characters for context if available, otherwise empty
+			const charactersForScene = characters ?? [];
+
 			scene = await extractScene(
 				isInitialScene,
 				sceneMessages,
-				characters,
+				charactersForScene,
 				isInitialScene ? userInfo : '',
 				isInitialScene ? characterInfo : '',
 				previousState?.scene ?? null,
 				abortController.signal,
 			);
-		} else {
-			// Carry forward previous scene or create default
+		} else if (settings.trackScene !== false) {
+			// Carry forward previous scene
 			scene = previousState?.scene;
 		}
 
 		// ========================================
 		// STEP 6: Assemble Final State
 		// ========================================
-		setExtractionStep('complete', shouldRunScene);
+		setExtractionStep('complete');
 
 		const state: TrackedState = {
 			time: narrativeTime,
@@ -264,7 +358,7 @@ export async function extractState(
 		extractionCount--;
 		if (extractionCount === 0) {
 			setSendButtonState(false);
-			setExtractionStep('idle', true);
+			setExtractionStep('idle');
 		}
 		if (currentAbortController === abortController) {
 			currentAbortController = null;
@@ -364,18 +458,6 @@ function prepareExtractionContext(
 	const characterInfo = `Name: ${context.name2}\nDescription: ${charDescription}`;
 
 	return { formattedMessages, characterInfo, userInfo };
-}
-
-function getDefaultTime(): NarrativeDateTime {
-	return {
-		year: new Date().getFullYear(),
-		month: 6,
-		day: 15,
-		hour: 12,
-		minute: 0,
-		second: 0,
-		dayOfWeek: 'Monday',
-	};
 }
 
 // ============================================

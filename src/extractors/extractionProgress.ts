@@ -17,6 +17,14 @@ export interface ExtractionProgress {
 	totalSteps: number;
 }
 
+export interface EnabledSteps {
+	time: boolean;
+	location: boolean;
+	climate: boolean;
+	characters: boolean;
+	scene: boolean;
+}
+
 type ProgressCallback = (progress: ExtractionProgress) => void;
 
 // ============================================
@@ -26,8 +34,17 @@ type ProgressCallback = (progress: ExtractionProgress) => void;
 let currentStep: ExtractionStep = 'idle';
 let progressCallback: ProgressCallback | null = null;
 
-// Steps in order (scene is optional, handled separately)
-const EXTRACTION_STEPS: ExtractionStep[] = ['time', 'location', 'climate', 'characters', 'scene'];
+// Default: all steps enabled
+let enabledSteps: EnabledSteps = {
+	time: true,
+	location: true,
+	climate: true,
+	characters: true,
+	scene: true,
+};
+
+// All possible extraction steps (in order)
+const ALL_EXTRACTION_STEPS: ExtractionStep[] = ['time', 'location', 'climate', 'characters', 'scene'];
 
 // ============================================
 // Public API
@@ -41,27 +58,40 @@ export function onExtractionProgress(callback: ProgressCallback | null): void {
 }
 
 /**
+ * Configure which extraction steps are enabled for the current extraction.
+ * Call this before starting extraction to ensure progress shows correct totals.
+ */
+export function setEnabledSteps(steps: EnabledSteps): void {
+	enabledSteps = { ...steps };
+}
+
+/**
+ * Get the list of currently enabled extraction steps.
+ */
+export function getEnabledSteps(): ExtractionStep[] {
+	return ALL_EXTRACTION_STEPS.filter(step => enabledSteps[step as keyof EnabledSteps]);
+}
+
+/**
  * Set the current extraction step and notify listeners.
  */
-export function setExtractionStep(step: ExtractionStep, includeScene: boolean = true): void {
+export function setExtractionStep(step: ExtractionStep): void {
 	currentStep = step;
 
 	if (progressCallback) {
-		const steps = includeScene
-			? EXTRACTION_STEPS
-			: EXTRACTION_STEPS.filter(s => s !== 'scene');
+		const activeSteps = getEnabledSteps();
 
 		const stepIndex =
 			step === 'idle'
 				? 0
 				: step === 'complete'
-					? steps.length
-					: steps.indexOf(step);
+					? activeSteps.length
+					: activeSteps.indexOf(step);
 
 		progressCallback({
 			step,
 			stepIndex: Math.max(0, stepIndex),
-			totalSteps: steps.length,
+			totalSteps: activeSteps.length,
 		});
 	}
 }

@@ -319,32 +319,19 @@ function PromptsSection({
 	const [isExpanded, setIsExpanded] = useState(false);
 	const definitions = getAllPromptDefinitions();
 
-	// Defensive: customTemperatures may be undefined for existing users
-	const temps = customTemperatures ?? {};
-	const customizedPromptCount = definitions.filter(d => !!customPrompts[d.key]).length;
-	const customizedTempCount = definitions.filter(d => d.key in temps).length;
-	const totalCustomized = customizedPromptCount + customizedTempCount;
-
 	return (
 		<div className="bt-prompts-section">
 			<div
 				className="bt-prompts-header"
 				onClick={() => setIsExpanded(!isExpanded)}
 			>
-				<div className="bt-prompts-title">
+				<span>
 					<i
-						className={`fa-solid fa-chevron-${isExpanded ? 'down' : 'right'}`}
-					></i>
-					<strong>Custom Prompts</strong>
-					{totalCustomized > 0 && (
-						<span className="bt-prompts-count">
-							({totalCustomized} customized)
-						</span>
-					)}
-				</div>
-				<small>
-					Click to customize extraction prompts and temperatures
-				</small>
+						className={`fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`}
+					></i>{' '}
+					Custom Prompts
+				</span>
+				<small>Click to customize extraction prompts</small>
 			</div>
 
 			{isExpanded && (
@@ -366,6 +353,81 @@ function PromptsSection({
 }
 
 // ============================================
+// Extraction Toggles Section
+// ============================================
+
+interface ExtractionTogglesSectionProps {
+	settings: BlazeTrackerSettings;
+	onToggle: (key: keyof BlazeTrackerSettings, value: boolean) => void;
+}
+
+function ExtractionTogglesSection({ settings, onToggle }: ExtractionTogglesSectionProps) {
+	return (
+		<div className="bt-extraction-toggles">
+			<div className="bt-section-header">
+				<strong>Extraction Types</strong>
+				<small>Enable or disable specific extraction modules</small>
+			</div>
+
+			<CheckboxField
+				id="blazetracker-tracktime"
+				label="Time Tracking"
+				description="Extract and track narrative date/time"
+				checked={settings.trackTime}
+				onChange={checked => onToggle('trackTime', checked)}
+			/>
+
+			{settings.trackTime && (
+				<div className="bt-nested-setting">
+					<NumberField
+						id="blazetracker-leapthreshold"
+						label="Leap Threshold (minutes)"
+						description="Cap consecutive time jumps to prevent 'double sleep' issues"
+						value={settings.leapThresholdMinutes}
+						min={5}
+						max={1440}
+						step={5}
+						onChange={v => onToggle('leapThresholdMinutes' as any, v as any)}
+					/>
+				</div>
+			)}
+
+			<CheckboxField
+				id="blazetracker-tracklocation"
+				label="Location Tracking"
+				description="Extract area, place, position, and nearby props"
+				checked={settings.trackLocation}
+				onChange={checked => onToggle('trackLocation', checked)}
+			/>
+
+			<CheckboxField
+				id="blazetracker-trackclimate"
+				label="Climate Tracking"
+				description="Extract weather and temperature conditions"
+				checked={settings.trackClimate}
+				onChange={checked => onToggle('trackClimate', checked)}
+			/>
+
+			<CheckboxField
+				id="blazetracker-trackcharacters"
+				label="Character Tracking"
+				description="Extract character positions, moods, outfits, and dispositions"
+				checked={settings.trackCharacters}
+				onChange={checked => onToggle('trackCharacters', checked)}
+			/>
+
+			<CheckboxField
+				id="blazetracker-trackscene"
+				label="Scene Tracking"
+				description="Extract scene topic, tone, tension, and recent events"
+				checked={settings.trackScene}
+				onChange={checked => onToggle('trackScene', checked)}
+			/>
+		</div>
+	);
+}
+
+// ============================================
 // Main Settings Panel Component
 // ============================================
 
@@ -378,8 +440,8 @@ function SettingsPanel() {
 		const context = SillyTavern.getContext();
 		const connectionManager = context.extensionSettings?.connectionManager as
 			| {
-					profiles?: ConnectionProfile[];
-			  }
+				profiles?: ConnectionProfile[];
+			}
 			| undefined;
 		setProfiles(connectionManager?.profiles || []);
 	}, []);
@@ -401,9 +463,10 @@ function SettingsPanel() {
 		[handleUpdate],
 	);
 
-	const handleTrackTimeChange = useCallback(
-		(checked: boolean) => {
-			handleUpdate('trackTime', checked);
+	// Generic toggle handler for extraction settings
+	const handleExtractionToggle = useCallback(
+		(key: keyof BlazeTrackerSettings, value: boolean) => {
+			handleUpdate(key, value as any);
 			setTimeout(() => renderAllStates(), 100);
 		},
 		[handleUpdate],
@@ -541,27 +604,11 @@ function SettingsPanel() {
 
 			<hr />
 
-			{/* Time Tracking */}
-			<CheckboxField
-				id="blazetracker-tracktime"
-				label="Enable Time Tracking"
-				description="Extract and track narrative date/time (requires additional LLM call per message)"
-				checked={settings.trackTime}
-				onChange={handleTrackTimeChange}
+			{/* Extraction Toggles Section */}
+			<ExtractionTogglesSection
+				settings={settings}
+				onToggle={handleExtractionToggle}
 			/>
-
-			{settings.trackTime && (
-				<NumberField
-					id="blazetracker-leapthreshold"
-					label="Leap Threshold (minutes)"
-					description="Cap consecutive time jumps to prevent 'double sleep' issues"
-					value={settings.leapThresholdMinutes}
-					min={5}
-					max={1440}
-					step={5}
-					onChange={v => handleUpdate('leapThresholdMinutes', v)}
-				/>
-			)}
 
 			<hr />
 

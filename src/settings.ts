@@ -15,7 +15,13 @@ export interface BlazeTrackerSettings {
 	lastXMessages: number;
 	maxResponseTokens: number;
 	displayPosition: 'above' | 'below';
+	// Extraction toggles
 	trackTime: boolean;
+	trackLocation: boolean;
+	trackClimate: boolean;
+	trackCharacters: boolean;
+	trackScene: boolean;
+	// Other settings
 	leapThresholdMinutes: number;
 	temperatureUnit: 'fahrenheit' | 'celsius';
 	timeFormat: '12h' | '24h';
@@ -29,7 +35,13 @@ export const defaultSettings: BlazeTrackerSettings = {
 	lastXMessages: 10,
 	maxResponseTokens: 4000,
 	displayPosition: 'below',
+	// All extractions enabled by default
 	trackTime: true,
+	trackLocation: true,
+	trackClimate: true,
+	trackCharacters: true,
+	trackScene: true,
+	// Other defaults
 	leapThresholdMinutes: 20,
 	temperatureUnit: 'fahrenheit',
 	timeFormat: '24h',

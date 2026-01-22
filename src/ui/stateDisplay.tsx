@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import type { CharacterOutfit, TrackedState, Scene, NarrativeDateTime } from '../types/state';
+import type { CharacterOutfit, TrackedState, Scene, NarrativeDateTime, Character } from '../types/state';
 import type { STContext } from '../types/st';
 import { st_echo } from 'sillytavern-utils-lib/config';
 import { extractState } from '../extractors/extractState';
@@ -98,7 +98,7 @@ function formatTime(time: NarrativeDateTime): string {
 	return `${time.dayOfWeek.slice(0, 3)}, ${month} ${time.day} ${time.year}, ${applyTimeFormat(time.hour, time.minute, settings.timeFormat)}`;
 }
 
-function formatLocation(location: TrackedState['location']): string {
+function formatLocation(location: NonNullable<TrackedState['location']>): string {
 	const parts = [location.position, location.place, location.area];
 	return parts.filter(Boolean).join(' · ');
 }
@@ -169,13 +169,7 @@ function SceneDisplay({ scene }: SceneDisplayProps) {
 }
 
 interface CharacterProps {
-	character: TrackedState['characters'][0];
-}
-
-// Updated Character component for stateDisplay.tsx
-
-interface CharacterProps {
-	character: TrackedState['characters'][0];
+	character: Character;
 }
 
 function Character({ character }: CharacterProps) {
@@ -295,37 +289,58 @@ function StateDisplay({ stateData, isExtracting, extractionStep }: StateDisplayP
 
 	const { state } = stateData;
 	const settings = getSettings();
-	const showTime = settings.trackTime !== false;
+
+	// Determine what to show based on settings AND data availability
+	const showTime = settings.trackTime !== false && state.time;
+	const showLocation = settings.trackLocation !== false && state.location;
+	const showClimate = settings.trackClimate !== false && state.climate;
+	const showScene = settings.trackScene !== false && state.scene;
+	const showCharacters = settings.trackCharacters !== false && state.characters && state.characters.length > 0;
+
+	// If nothing to show, render nothing
+	const hasAnythingToShow = showTime || showLocation || showClimate || showScene || showCharacters;
+	if (!hasAnythingToShow) {
+		return null;
+	}
+
+	// Calculate details summary
+	const characterCount = state.characters?.length ?? 0;
+	const propsCount = state.location?.props?.length ?? 0;
+	const showDetails = (showCharacters && characterCount > 0) || (showLocation && propsCount > 0);
 
 	return (
 		<div className="bt-state-container">
-			{/* Time/Weather/Location row */}
-			<div className="bt-state-summary">
-				{showTime && (
-					<span className="bt-time">
-						<i className="fa-regular fa-clock"></i>{' '}
-						{formatTime(state.time)}
-					</span>
-				)}
-				{state.climate && (
-					<span className="bt-climate">
-						<i
-							className={`fa-solid ${getWeatherIcon(state.climate.weather)}`}
-						></i>
-						{state.climate.temperature !== undefined &&
-							` ${formatTemperature(state.climate.temperature, settings.temperatureUnit)}`}
-					</span>
-				)}
-				<span className="bt-location">
-					<i className="fa-solid fa-location-dot"></i>{' '}
-					{formatLocation(state.location)}
-				</span>
-			</div>
+			{/* Time/Weather/Location row - only show if at least one is enabled */}
+			{(showTime || showClimate || showLocation) && (
+				<div className="bt-state-summary">
+					{showTime && state.time && (
+						<span className="bt-time">
+							<i className="fa-regular fa-clock"></i>{' '}
+							{formatTime(state.time)}
+						</span>
+					)}
+					{showClimate && state.climate && (
+						<span className="bt-climate">
+							<i
+								className={`fa-solid ${getWeatherIcon(state.climate.weather)}`}
+							></i>
+							{state.climate.temperature !== undefined &&
+								` ${formatTemperature(state.climate.temperature, settings.temperatureUnit)}`}
+						</span>
+					)}
+					{showLocation && state.location && (
+						<span className="bt-location">
+							<i className="fa-solid fa-location-dot"></i>{' '}
+							{formatLocation(state.location)}
+						</span>
+					)}
+				</div>
+			)}
 
 			{/* Scene summary */}
-			{state.scene ? (
+			{showScene && state.scene ? (
 				<SceneDisplay scene={state.scene} />
-			) : (
+			) : showScene && !state.scene ? (
 				<div className="bt-scene-pending">
 					<i className="fa-solid fa-hourglass-half"></i>
 					<span>
@@ -333,35 +348,43 @@ function StateDisplay({ stateData, isExtracting, extractionStep }: StateDisplayP
 						response
 					</span>
 				</div>
-			)}
+			) : null}
 
-			{/* Expandable details */}
-			<details className="bt-state-details">
-				<summary>
-					Details ({state.characters.length} characters,{' '}
-					{state.location.props.length} props)
-				</summary>
+			{/* Expandable details - only show if there's something to expand */}
+			{showDetails && (
+				<details className="bt-state-details">
+					<summary>
+						Details
+						{showCharacters && characterCount > 0 && ` (${characterCount} characters`}
+						{showLocation && propsCount > 0 && `${showCharacters && characterCount > 0 ? ', ' : ' ('}${propsCount} props`}
+						{(showCharacters && characterCount > 0) || (showLocation && propsCount > 0) ? ')' : ''}
+					</summary>
 
-				<div className="bt-props-section">
-					<span className="bt-props-header">Props</span>
-					<div className="bt-props">
-						<ul>
-							{state.location.props.map((prop, idx) => (
-								<li key={idx}>{prop}</li>
+					{showLocation && state.location && state.location.props && state.location.props.length > 0 && (
+						<div className="bt-props-section">
+							<span className="bt-props-header">Props</span>
+							<div className="bt-props">
+								<ul>
+									{state.location.props.map((prop, idx) => (
+										<li key={idx}>{prop}</li>
+									))}
+								</ul>
+							</div>
+						</div>
+					)}
+
+					{showCharacters && state.characters && state.characters.length > 0 && (
+						<div className="bt-characters">
+							{state.characters.map((char, idx) => (
+								<Character
+									key={`${char.name}-${idx}`}
+									character={char}
+								/>
 							))}
-						</ul>
-					</div>
-				</div>
-
-				<div className="bt-characters">
-					{state.characters.map((char, idx) => (
-						<Character
-							key={`${char.name}-${idx}`}
-							character={char}
-						/>
-					))}
-				</div>
-			</details>
+						</div>
+					)}
+				</details>
+			)}
 		</div>
 	);
 }

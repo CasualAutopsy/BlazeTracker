@@ -85,60 +85,78 @@ function getDayOrdinal(day: number): string {
 
 export function formatStateForInjection(state: TrackedState): string {
 	const settings = getSettings();
-	const showTime = settings.trackTime !== false;
 
-	const location = [state.location.area, state.location.place, state.location.position]
-		.filter(Boolean)
-		.join(' - ');
-	const props = state.location.props.join(', ');
+	// Check what's enabled AND what data exists
+	const hasTime = settings.trackTime !== false && state.time;
+	const hasLocation = settings.trackLocation !== false && state.location;
+	const hasClimate = settings.trackClimate !== false && state.climate;
+	const hasScene = settings.trackScene !== false && state.scene;
+	const hasCharacters = settings.trackCharacters !== false && state.characters && state.characters.length > 0;
 
-	const climate = state.climate ? formatClimate(state.climate) : '';
-
-	const characters = state.characters
-		.map(char => {
-			const parts = [`${char.name}: ${char.position}`];
-			if (char.activity) parts.push(`doing: ${char.activity}`);
-			if (char.mood?.length) parts.push(`mood: ${char.mood.join(', ')}`);
-			if (char.goals?.length) parts.push(`goals: ${char.goals.join(', ')}`);
-			if (char.physicalState?.length)
-				parts.push(`physical: ${char.physicalState.join(', ')}`);
-			if (char.outfit) parts.push(`wearing: ${formatOutfit(char.outfit)}`);
-			if (char.dispositions) {
-				const dispParts = Object.entries(char.dispositions).map(
-					([name, feelings]) => `${name}: ${feelings.join(', ')}`,
-				);
-				if (dispParts.length)
-					parts.push(`feelings: ${dispParts.join('; ')}`);
-			}
-			return parts.join('; ');
-		})
-		.join('\n');
+	// If nothing is tracked/available, return empty
+	if (!hasTime && !hasLocation && !hasClimate && !hasScene && !hasCharacters) {
+		return '';
+	}
 
 	let output = `[Scene State]`;
 
 	// Scene info first - it's the narrative context
-	if (state.scene) {
+	if (hasScene && state.scene) {
 		output += `\n${formatScene(state.scene)}`;
 	}
 
-	// Only include time if tracking is enabled
-	if (showTime && state.time) {
+	// Time (if enabled and available)
+	if (hasTime && state.time) {
 		const timeStr = formatNarrativeDateTime(state.time);
 		output += `\nTime: ${timeStr}`;
 	}
 
-	output += `
-Location: ${location}
-Nearby objects: ${props}`;
+	// Location (if enabled and available)
+	if (hasLocation && state.location) {
+		const location = [state.location.area, state.location.place, state.location.position]
+			.filter(Boolean)
+			.join(' - ');
+		output += `\nLocation: ${location}`;
 
-	if (climate) {
+		// Props are part of location
+		if (state.location.props && state.location.props.length > 0) {
+			const props = state.location.props.join(', ');
+			output += `\nNearby objects: ${props}`;
+		}
+	}
+
+	// Climate (if enabled and available)
+	if (hasClimate && state.climate) {
+		const climate = formatClimate(state.climate);
 		output += `\nClimate: ${climate}`;
 	}
 
-	output += `
-Characters present:
-${characters}
-[/Scene State]`;
+	// Characters (if enabled and available)
+	if (hasCharacters && state.characters) {
+		const characters = state.characters
+			.map(char => {
+				const parts = [`${char.name}: ${char.position}`];
+				if (char.activity) parts.push(`doing: ${char.activity}`);
+				if (char.mood?.length) parts.push(`mood: ${char.mood.join(', ')}`);
+				if (char.goals?.length) parts.push(`goals: ${char.goals.join(', ')}`);
+				if (char.physicalState?.length)
+					parts.push(`physical: ${char.physicalState.join(', ')}`);
+				if (char.outfit) parts.push(`wearing: ${formatOutfit(char.outfit)}`);
+				if (char.dispositions) {
+					const dispParts = Object.entries(char.dispositions).map(
+						([name, feelings]) => `${name}: ${feelings.join(', ')}`,
+					);
+					if (dispParts.length)
+						parts.push(`feelings: ${dispParts.join('; ')}`);
+				}
+				return parts.join('; ');
+			})
+			.join('\n');
+
+		output += `\nCharacters present:\n${characters}`;
+	}
+
+	output += `\n[/Scene State]`;
 
 	return output;
 }
@@ -152,6 +170,12 @@ export function injectState(state: TrackedState | null) {
 	}
 
 	const formatted = formatStateForInjection(state);
+
+	// If nothing to inject, clear the prompt
+	if (!formatted) {
+		context.setExtensionPrompt(EXTENSION_KEY, '', 0, 0);
+		return;
+	}
 
 	// Inject at depth 0 (with most recent messages), position IN_CHAT
 	// Position 1 = after main prompt, before chat

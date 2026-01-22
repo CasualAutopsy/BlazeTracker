@@ -3,9 +3,12 @@
  *
  * A form-based editor for TrackedState with validation against the schema.
  * Uses ST's popup system to display.
+ *
+ * Only shows sections for fields that exist in the state.
+ * Preserves optionality - undefined fields stay undefined.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import type {
 	TrackedState,
@@ -14,6 +17,7 @@ import type {
 	Climate,
 	Scene,
 	NarrativeDateTime,
+	LocationState,
 } from '../types/state';
 import { toDisplayTemp, toStorageTemp } from '../utils/temperatures';
 import { getSettings } from '../settings';
@@ -88,38 +92,6 @@ function getDayOfWeek(year: number, month: number, day: number): string {
 	return DAYS_OF_WEEK[date.getDay()];
 }
 
-function createEmptyScene(): Scene {
-	return {
-		topic: '',
-		tone: '',
-		tension: { level: 'relaxed', direction: 'stable', type: 'conversation' },
-		recentEvents: [],
-	};
-}
-
-function createEmptyTime(): NarrativeDateTime {
-	const now = new Date();
-	return {
-		year: now.getFullYear(),
-		month: now.getMonth() + 1,
-		day: now.getDate(),
-		hour: 12,
-		minute: 0,
-		second: 0,
-		dayOfWeek: DAYS_OF_WEEK[now.getDay()],
-	};
-}
-
-function createEmptyState(): TrackedState {
-	return {
-		time: createEmptyTime(),
-		location: { area: '', place: '', position: '', props: [] },
-		climate: { weather: 'sunny', temperature: 70 },
-		scene: createEmptyScene(),
-		characters: [],
-	};
-}
-
 function createEmptyCharacter(): Character {
 	return {
 		name: '',
@@ -141,6 +113,48 @@ function createEmptyCharacter(): Character {
 	};
 }
 
+function createEmptyTime(): NarrativeDateTime {
+	const now = new Date();
+	return {
+		year: now.getFullYear(),
+		month: now.getMonth() + 1,
+		day: now.getDate(),
+		hour: 12,
+		minute: 0,
+		second: 0,
+		dayOfWeek: DAYS_OF_WEEK[now.getDay()],
+	};
+}
+
+function createEmptyLocation(): LocationState {
+	return {
+		area: '',
+		place: '',
+		position: '',
+		props: [],
+	};
+}
+
+function createEmptyClimate(): Climate {
+	return {
+		weather: 'sunny',
+		temperature: 70,
+	};
+}
+
+function createEmptyScene(): Scene {
+	return {
+		topic: '',
+		tone: '',
+		tension: {
+			level: 'relaxed',
+			direction: 'stable',
+			type: 'conversation',
+		},
+		recentEvents: [],
+	};
+}
+
 function cloneState(state: TrackedState): TrackedState {
 	return JSON.parse(JSON.stringify(state));
 }
@@ -150,62 +164,70 @@ function cloneState(state: TrackedState): TrackedState {
 function validateState(state: TrackedState): ValidationErrors {
 	const errors: ValidationErrors = {};
 
-	// Scene
-	if (!state.scene?.topic?.trim()) {
-		errors['scene.topic'] = 'Topic is required';
-	}
-	if (!state.scene?.tone?.trim()) {
-		errors['scene.tone'] = 'Tone is required';
-	}
-
-	// Time
-	if (state.time.year < 1 || state.time.year > 9999) {
-		errors['time.year'] = 'Year must be 1-9999';
-	}
-	if (state.time.month < 1 || state.time.month > 12) {
-		errors['time.month'] = 'Month must be 1-12';
-	}
-	const maxDay = getDaysInMonth(state.time.year, state.time.month);
-	if (state.time.day < 1 || state.time.day > maxDay) {
-		errors['time.day'] = `Day must be 1-${maxDay}`;
-	}
-	if (state.time.hour < 0 || state.time.hour > 23) {
-		errors['time.hour'] = 'Hour must be 0-23';
-	}
-	if (state.time.minute < 0 || state.time.minute > 59) {
-		errors['time.minute'] = 'Minute must be 0-59';
+	// Scene (only validate if present)
+	if (state.scene) {
+		if (!state.scene.topic?.trim()) {
+			errors['scene.topic'] = 'Topic is required';
+		}
+		if (!state.scene.tone?.trim()) {
+			errors['scene.tone'] = 'Tone is required';
+		}
 	}
 
-	// Location
-	if (!state.location.area?.trim()) {
-		errors['location.area'] = 'Area is required';
-	}
-	if (!state.location.place?.trim()) {
-		errors['location.place'] = 'Place is required';
-	}
-	if (!state.location.position?.trim()) {
-		errors['location.position'] = 'Position is required';
-	}
-	if (!state.location.props.length) {
-		errors['location.props'] = 'Props is required';
+	// Time (only validate if present)
+	if (state.time) {
+		if (state.time.year < 1 || state.time.year > 9999) {
+			errors['time.year'] = 'Year must be 1-9999';
+		}
+		if (state.time.month < 1 || state.time.month > 12) {
+			errors['time.month'] = 'Month must be 1-12';
+		}
+		const maxDay = getDaysInMonth(state.time.year, state.time.month);
+		if (state.time.day < 1 || state.time.day > maxDay) {
+			errors['time.day'] = `Day must be 1-${maxDay}`;
+		}
+		if (state.time.hour < 0 || state.time.hour > 23) {
+			errors['time.hour'] = 'Hour must be 0-23';
+		}
+		if (state.time.minute < 0 || state.time.minute > 59) {
+			errors['time.minute'] = 'Minute must be 0-59';
+		}
 	}
 
-	// Climate
+	// Location (only validate if present)
+	if (state.location) {
+		if (!state.location.area?.trim()) {
+			errors['location.area'] = 'Area is required';
+		}
+		if (!state.location.place?.trim()) {
+			errors['location.place'] = 'Place is required';
+		}
+		if (!state.location.position?.trim()) {
+			errors['location.position'] = 'Position is required';
+		}
+		if (!state.location.props?.length) {
+			errors['location.props'] = 'Props is required';
+		}
+	}
+
+	// Climate (only validate if present)
 	if (state.climate) {
 		if (!WEATHER_OPTIONS.includes(state.climate.weather as any)) {
 			errors['climate.weather'] = 'Invalid weather';
 		}
 	}
 
-	// Characters
-	state.characters.forEach((char, idx) => {
-		if (!char.name?.trim()) {
-			errors[`char.${idx}.name`] = 'Name required';
-		}
-		if (!char.position?.trim()) {
-			errors[`char.${idx}.position`] = 'Position required';
-		}
-	});
+	// Characters (only validate if present)
+	if (state.characters) {
+		state.characters.forEach((char, idx) => {
+			if (!char.name?.trim()) {
+				errors[`char.${idx}.name`] = 'Name required';
+			}
+			if (!char.position?.trim()) {
+				errors[`char.${idx}.position`] = 'Position required';
+			}
+		});
+	}
 
 	return errors;
 }
@@ -368,89 +390,86 @@ function OutfitEditor({
 	);
 }
 
-/** Dispositions editor - dynamic key-value pairs */
+/** Dispositions editor - feelings toward other characters */
 function DispositionsEditor({
 	dispositions,
-	onChange,
 	otherNames,
+	onChange,
 }: {
 	dispositions: Record<string, string[]>;
-	onChange: (d: Record<string, string[]>) => void;
 	otherNames: string[];
+	onChange: (d: Record<string, string[]>) => void;
 }) {
-	const [newTarget, setNewTarget] = useState('');
+	const [selectedName, setSelectedName] = useState('');
 
-	const addTarget = () => {
-		const target = newTarget.trim();
-		if (target && !(target in dispositions)) {
-			onChange({ ...dispositions, [target]: [] });
-			setNewTarget('');
+	const addDisposition = (name: string) => {
+		if (name && !dispositions[name]) {
+			onChange({ ...dispositions, [name]: [] });
 		}
+		setSelectedName('');
 	};
 
-	const updateFeelings = (target: string, feelings: string[]) => {
-		onChange({ ...dispositions, [target]: feelings });
+	const updateFeelings = (name: string, feelings: string[]) => {
+		onChange({ ...dispositions, [name]: feelings });
 	};
 
-	const removeTarget = (target: string) => {
-		const { [target]: _, ...rest } = dispositions;
+	const removeDisposition = (name: string) => {
+		const { [name]: _, ...rest } = dispositions;
 		onChange(rest);
 	};
 
+	// Names not yet in dispositions
+	const availableNames = otherNames.filter(n => !dispositions[n]);
+
 	return (
 		<div className="bt-dispositions">
-			{Object.entries(dispositions).map(([target, feelings]) => (
-				<div key={target} className="bt-disposition">
+			{Object.entries(dispositions).map(([name, feelings]) => (
+				<div key={name} className="bt-disposition-item">
 					<div className="bt-disposition-header">
-						<span>→ {target}</span>
+						<span className="bt-disposition-name">→ {name}</span>
 						<button
 							type="button"
-							onClick={() => removeTarget(target)}
-							className="bt-x-red"
+							onClick={() => removeDisposition(name)}
+							className="bt-x"
 						>
-							<i className="fa-solid fa-trash"></i>
+							×
 						</button>
 					</div>
 					<TagInput
 						tags={feelings}
-						onChange={f => updateFeelings(target, f)}
+						onChange={f => updateFeelings(name, f)}
 						placeholder="Add feeling..."
 					/>
 				</div>
 			))}
-			<div className="bt-add-row">
-				<select
-					value={newTarget}
-					onChange={e => setNewTarget(e.target.value)}
-				>
-					<option value="">+ Add disposition...</option>
-					{otherNames
-						.filter(n => !(n in dispositions))
-						.map(n => (
-							<option key={n} value={n}>
-								{n}
+			{availableNames.length > 0 && (
+				<div className="bt-add-disposition">
+					<select
+						value={selectedName}
+						onChange={e => setSelectedName(e.target.value)}
+					>
+						<option value="">Add feelings toward...</option>
+						{availableNames.map(name => (
+							<option key={name} value={name}>
+								{name}
 							</option>
 						))}
-				</select>
-				<input
-					type="text"
-					value={newTarget}
-					onChange={e => setNewTarget(e.target.value)}
-					placeholder="Or type name..."
-				/>
-				<button
-					type="button"
-					onClick={addTarget}
-					disabled={!newTarget.trim()}
-				>
-					Add
-				</button>
-			</div>
+					</select>
+					{selectedName && (
+						<button
+							type="button"
+							onClick={() => addDisposition(selectedName)}
+						>
+							+
+						</button>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
 
-/** Single character editor */
+/** Character editor */
 function CharacterEditor({
 	character,
 	index,
@@ -466,87 +485,74 @@ function CharacterEditor({
 	otherNames: string[];
 	errors: ValidationErrors;
 }) {
-	const [expanded, setExpanded] = useState(true);
-	const prefix = `char.${index}`;
-
 	const update = <K extends keyof Character>(field: K, value: Character[K]) => {
 		onChange({ ...character, [field]: value });
 	};
 
 	return (
-		<div className="bt-char-card">
-			<div className="bt-char-header" onClick={() => setExpanded(!expanded)}>
-				<i
-					className={`fa-solid fa-chevron-${expanded ? 'down' : 'right'}`}
-				></i>
-				<span className="bt-char-name">
-					{character.name || `Character ${index + 1}`}
-				</span>
-				<button
-					type="button"
-					onClick={e => {
-						e.stopPropagation();
-						onRemove();
-					}}
-					className="bt-x-red"
-				>
-					<i className="fa-solid fa-trash"></i>
-				</button>
-			</div>
+		<div className="bt-char-editor">
+			<details>
+				<summary>
+					<span className="bt-char-name">
+						{character.name || `Character ${index + 1}`}
+					</span>
+					<button
+						type="button"
+						onClick={e => {
+							e.preventDefault();
+							onRemove();
+						}}
+						className="bt-x"
+					>
+						×
+					</button>
+				</summary>
 
-			{expanded && (
-				<div className="bt-char-body">
-					<div className="bt-field">
-						<label>Name *</label>
-						<input
-							type="text"
-							value={character.name}
-							onChange={e =>
-								update('name', e.target.value)
-							}
-							className={
-								errors[`${prefix}.name`]
-									? 'bt-err'
-									: ''
-							}
-						/>
+				<div className="bt-char-fields">
+					{/* Basic Info */}
+					<div className="bt-row-2">
+						<div className="bt-field">
+							<label>Name *</label>
+							<input
+								type="text"
+								value={character.name}
+								onChange={e => update('name', e.target.value)}
+								className={
+									errors[`char.${index}.name`] ? 'bt-err' : ''
+								}
+							/>
+						</div>
+						<div className="bt-field">
+							<label>Activity</label>
+							<input
+								type="text"
+								value={character.activity || ''}
+								onChange={e =>
+									update('activity', e.target.value || undefined)
+								}
+							/>
+						</div>
 					</div>
 
 					<div className="bt-field">
 						<label>Position *</label>
-						<textarea
-							value={character.position}
-							onChange={e =>
-								update('position', e.target.value)
-							}
-							rows={2}
-							placeholder="Physical position and orientation..."
-							className={
-								errors[`${prefix}.position`]
-									? 'bt-err'
-									: ''
-							}
-						/>
-					</div>
-
-					<div className="bt-field">
-						<label>Activity</label>
 						<input
 							type="text"
-							value={character.activity || ''}
-							onChange={e =>
-								update('activity', e.target.value)
+							value={character.position}
+							onChange={e => update('position', e.target.value)}
+							className={
+								errors[`char.${index}.position`] ? 'bt-err' : ''
 							}
-							placeholder="Current activity..."
 						/>
 					</div>
 
+					{/* Tags */}
 					<div className="bt-field">
 						<label>Mood</label>
 						<TagInput
 							tags={character.mood || []}
 							onChange={t => update('mood', t)}
-							placeholder="Add mood..."
+							placeholder="anxious, hopeful..."
 						/>
 					</div>
 
@@ -555,7 +561,7 @@ function CharacterEditor({
 						<TagInput
 							tags={character.goals || []}
 							onChange={t => update('goals', t)}
-							placeholder="Add goal..."
+							placeholder="find the artifact..."
 						/>
 					</div>
 
@@ -564,40 +570,30 @@ function CharacterEditor({
 						<TagInput
 							tags={character.physicalState || []}
 							onChange={t => update('physicalState', t)}
-							placeholder="Add state..."
+							placeholder="tired, injured..."
 						/>
 					</div>
 
-					<details className="bt-details" open>
-						<summary>Outfit</summary>
+					{/* Outfit */}
+					<div className="bt-field">
+						<label>Outfit</label>
 						<OutfitEditor
-							outfit={
-								character.outfit ||
-								createEmptyCharacter().outfit
-							}
+							outfit={character.outfit}
 							onChange={o => update('outfit', o)}
 						/>
-					</details>
+					</div>
 
-					<details className="bt-details">
-						<summary>
-							Dispositions (
-							{
-								Object.keys(
-									character.dispositions ||
-										{},
-								).length
-							}
-							)
-						</summary>
+					{/* Dispositions */}
+					<div className="bt-field">
+						<label>Dispositions</label>
 						<DispositionsEditor
 							dispositions={character.dispositions || {}}
-							onChange={d => update('dispositions', d)}
 							otherNames={otherNames}
+							onChange={d => update('dispositions', d)}
 						/>
-					</details>
+					</div>
 				</div>
-			)}
+			</details>
 		</div>
 	);
 }
@@ -607,36 +603,65 @@ function CharacterEditor({
 export function StateEditor({ initialState, onSave, onCancel }: StateEditorProps) {
 	const settings = getSettings();
 	const tempUnit = settings.temperatureUnit ?? 'fahrenheit';
+
+	// Clone the state to avoid mutating the original
+	// Keep undefined fields as undefined
 	const [state, setState] = useState<TrackedState>(() =>
-		initialState ? cloneState(initialState) : createEmptyState(),
+		initialState ? cloneState(initialState) : {}
 	);
 	const [errors, setErrors] = useState<ValidationErrors>({});
 	const [tab, setTab] = useState<'scene' | 'chars'>('scene');
 
+	// Check what sections exist
+	const hasTime = state.time !== undefined;
+	const hasLocation = state.location !== undefined;
+	const hasClimate = state.climate !== undefined;
+	const hasScene = state.scene !== undefined;
+	const hasCharacters = state.characters !== undefined;
+
+	// Check if there's anything to show on the scene tab
+	const hasSceneTabContent = hasTime || hasLocation || hasClimate || hasScene;
+
+	// Ensure we're on a valid tab
+	useEffect(() => {
+		if (tab === 'scene' && !hasSceneTabContent && hasCharacters) {
+			setTab('chars');
+		} else if (tab === 'chars' && !hasCharacters && hasSceneTabContent) {
+			setTab('scene');
+		}
+	}, [tab, hasSceneTabContent, hasCharacters]);
+
 	// Scene context
 	const updateScene = (field: keyof Scene, value: any) => {
-		setState(s => ({
-			...s,
-			scene: { ...(s.scene || createEmptyScene()), [field]: value },
-		}));
+		setState(s => {
+			if (!s.scene) return s;
+			return {
+				...s,
+				scene: { ...s.scene, [field]: value },
+			};
+		});
 	};
 
 	const updateTension = (field: keyof Scene['tension'], value: any) => {
-		setState(s => ({
-			...s,
-			scene: {
-				...(s.scene || createEmptyScene()),
-				tension: {
-					...(s.scene?.tension || createEmptyScene().tension),
-					[field]: value,
+		setState(s => {
+			if (!s.scene) return s;
+			return {
+				...s,
+				scene: {
+					...s.scene,
+					tension: {
+						...s.scene.tension,
+						[field]: value,
+					},
 				},
-			},
-		}));
+			};
+		});
 	};
 
 	// Time - with automatic dayOfWeek calculation
 	const updateTime = (field: keyof NarrativeDateTime, value: any) => {
 		setState(s => {
+			if (!s.time) return s;
 			const newTime = { ...s.time, [field]: value };
 
 			// Recalculate dayOfWeek if date components change
@@ -659,44 +684,82 @@ export function StateEditor({ initialState, onSave, onCancel }: StateEditorProps
 
 	// Location
 	const updateLocation = (
-		field: keyof TrackedState['location'],
+		field: keyof LocationState,
 		value: string | string[],
 	) => {
-		setState(s => ({ ...s, location: { ...s.location, [field]: value } }));
+		setState(s => {
+			if (!s.location) return s;
+			return { ...s, location: { ...s.location, [field]: value } };
+		});
 	};
 
 	// Climate
 	const updateClimate = (field: keyof Climate, value: any) => {
-		setState(s => ({
-			...s,
-			climate: {
-				...(s.climate || { weather: 'sunny', temperature: 70 }),
-				[field]: value,
-			},
-		}));
+		setState(s => {
+			if (!s.climate) return s;
+			return {
+				...s,
+				climate: { ...s.climate, [field]: value },
+			};
+		});
 	};
 
 	// Characters
 	const updateChar = (idx: number, char: Character) => {
-		setState(s => ({
-			...s,
-			characters: s.characters.map((c, i) => (i === idx ? char : c)),
-		}));
+		setState(s => {
+			if (!s.characters) return s;
+			return {
+				...s,
+				characters: s.characters.map((c, i) => (i === idx ? char : c)),
+			};
+		});
 	};
 
 	const addChar = () => {
-		setState(s => ({ ...s, characters: [...s.characters, createEmptyCharacter()] }));
+		setState(s => {
+			if (!s.characters) return s;
+			return { ...s, characters: [...s.characters, createEmptyCharacter()] };
+		});
 	};
 
 	const removeChar = (idx: number) => {
-		setState(s => ({ ...s, characters: s.characters.filter((_, i) => i !== idx) }));
+		setState(s => {
+			if (!s.characters) return s;
+			return { ...s, characters: s.characters.filter((_, i) => i !== idx) };
+		});
 	};
 
 	const getOtherNames = (excludeIdx: number) =>
-		state.characters
+		(state.characters || [])
 			.filter((_, i) => i !== excludeIdx)
 			.map(c => c.name)
 			.filter(Boolean);
+
+	// Add missing sections
+	const addTime = () => setState(s => ({ ...s, time: createEmptyTime() }));
+	const addLocation = () => setState(s => ({ ...s, location: createEmptyLocation() }));
+	const addClimate = () => setState(s => ({ ...s, climate: createEmptyClimate() }));
+	const addScene = () => setState(s => ({ ...s, scene: createEmptyScene() }));
+	const addCharacters = () => setState(s => ({ ...s, characters: [] }));
+
+	// Remove sections (switch tabs if needed)
+	const removeTime = () => {
+		setState(s => { const { time, ...rest } = s; return rest; });
+	};
+	const removeLocation = () => {
+		setState(s => { const { location, ...rest } = s; return rest; });
+	};
+	const removeClimate = () => {
+		setState(s => { const { climate, ...rest } = s; return rest; });
+	};
+	const removeScene = () => {
+		setState(s => { const { scene, ...rest } = s; return rest; });
+	};
+	const removeCharacters = () => {
+		setState(s => { const { characters, ...rest } = s; return rest; });
+		// Switch to scene tab since characters tab will be gone
+		setTab('scene');
+	};
 
 	// Save
 	const handleSave = () => {
@@ -709,511 +772,560 @@ export function StateEditor({ initialState, onSave, onCancel }: StateEditorProps
 
 	const hasErrors = Object.keys(errors).length > 0;
 
-	// Calculate max days for current month
-	const maxDaysInMonth = getDaysInMonth(state.time.year, state.time.month);
+	// Calculate max days for current month (only if time exists)
+	const maxDaysInMonth = hasTime && state.time
+		? getDaysInMonth(state.time.year, state.time.month)
+		: 31;
+
+	// Check what sections are missing (for add buttons)
+	const missingSections = {
+		time: !hasTime,
+		location: !hasLocation,
+		climate: !hasClimate,
+		scene: !hasScene,
+		characters: !hasCharacters,
+	};
+	const hasMissingSections = Object.values(missingSections).some(v => v);
+
+	// Component for adding missing sections
+	const AddSectionButtons = () => {
+		if (!hasMissingSections) return null;
+
+		return (
+			<div className="bt-add-sections">
+				<span className="bt-add-sections-label">Add section:</span>
+				{missingSections.scene && (
+					<button type="button" onClick={addScene} className="bt-btn-small">
+						<i className="fa-solid fa-clapperboard"></i> Scene
+					</button>
+				)}
+				{missingSections.time && (
+					<button type="button" onClick={addTime} className="bt-btn-small">
+						<i className="fa-regular fa-clock"></i> Time
+					</button>
+				)}
+				{missingSections.location && (
+					<button type="button" onClick={addLocation} className="bt-btn-small">
+						<i className="fa-solid fa-map-marker-alt"></i> Location
+					</button>
+				)}
+				{missingSections.climate && (
+					<button type="button" onClick={addClimate} className="bt-btn-small">
+						<i className="fa-solid fa-cloud-sun"></i> Climate
+					</button>
+				)}
+				{missingSections.characters && (
+					<button type="button" onClick={addCharacters} className="bt-btn-small">
+						<i className="fa-solid fa-users"></i> Characters
+					</button>
+				)}
+			</div>
+		);
+	};
+
+	// If nothing to edit at all, show add buttons
+	if (!hasSceneTabContent && !hasCharacters) {
+		return (
+			<div className="bt-editor">
+				<div className="bt-empty-state">
+					<i className="fa-solid fa-info-circle"></i>
+					<p>No state data to edit.</p>
+					<p>Run extraction to populate, or add sections manually:</p>
+					<AddSectionButtons />
+				</div>
+				<div className="bt-actions">
+					<button type="button" onClick={onCancel} className="bt-btn">
+						Close
+					</button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="bt-editor">
 			{/* Tabs */}
 			<div className="bt-tabs">
-				<button
-					type="button"
-					className={`bt-tab ${tab === 'scene' ? 'active' : ''}`}
-					onClick={() => setTab('scene')}
-				>
-					<i className="fa-solid fa-location-dot"></i> Scene
-				</button>
-				<button
-					type="button"
-					className={`bt-tab ${tab === 'chars' ? 'active' : ''}`}
-					onClick={() => setTab('chars')}
-				>
-					<i className="fa-solid fa-users"></i> Characters (
-					{state.characters.length})
-				</button>
+				{hasSceneTabContent && (
+					<button
+						type="button"
+						className={`bt-tab ${tab === 'scene' ? 'active' : ''}`}
+						onClick={() => setTab('scene')}
+					>
+						<i className="fa-solid fa-location-dot"></i> Scene
+					</button>
+				)}
+				{hasCharacters && (
+					<button
+						type="button"
+						className={`bt-tab ${tab === 'chars' ? 'active' : ''}`}
+						onClick={() => setTab('chars')}
+					>
+						<i className="fa-solid fa-users"></i> Characters (
+						{state.characters?.length || 0})
+					</button>
+				)}
 			</div>
 
 			{/* Scene Tab */}
-			{tab === 'scene' && (
+			{tab === 'scene' && hasSceneTabContent && (
 				<div className="bt-panel">
-					{/* Scene Context (NEW) */}
-					<fieldset className="bt-section">
-						<legend>
-							<i className="fa-solid fa-clapperboard"></i>{' '}
-							Context
-						</legend>
-						<div className="bt-row-2">
-							<div className="bt-field">
-								<label>Topic *</label>
-								<input
-									type="text"
-									value={
-										state.scene
-											?.topic ||
-										''
-									}
-									onChange={e =>
-										updateScene(
-											'topic',
-											e.target
-												.value,
-										)
-									}
-									placeholder="3-5 words: main topic of interaction"
-									className={
-										errors[
-											'scene.topic'
-										]
-											? 'bt-err'
-											: ''
-									}
-								/>
-							</div>
-							<div className="bt-field">
-								<label>Tone *</label>
-								<input
-									type="text"
-									value={
-										state.scene?.tone ||
-										''
-									}
-									onChange={e =>
-										updateScene(
-											'tone',
-											e.target
-												.value,
-										)
-									}
-									placeholder="2-3 words: emotional tone"
-									className={
-										errors['scene.tone']
-											? 'bt-err'
-											: ''
-									}
-								/>
-							</div>
-						</div>
-						<div className="bt-row-3">
-							<div className="bt-field">
-								<label>Tension Type</label>
-								<select
-									value={
-										state.scene?.tension
-											?.type ||
-										'conversation'
-									}
-									onChange={e =>
-										updateTension(
-											'type',
-											e.target
-												.value,
-										)
-									}
+					{/* Scene Context */}
+					{hasScene && state.scene && (
+						<fieldset className="bt-section">
+							<legend>
+								<i className="fa-solid fa-clapperboard"></i>{' '}
+								Context
+								<button
+									type="button"
+									className="bt-section-remove"
+									onClick={removeScene}
+									title="Remove section"
 								>
-									{TENSION_TYPES.map(t => (
-										<option
-											key={t}
-											value={t}
-										>
-											{t}
-										</option>
-									))}
-								</select>
+									<i className="fa-solid fa-trash"></i>
+								</button>
+							</legend>
+							<div className="bt-row-2">
+								<div className="bt-field">
+									<label>Topic *</label>
+									<input
+										type="text"
+										value={state.scene.topic}
+										onChange={e =>
+											updateScene('topic', e.target.value)
+										}
+										placeholder="What's the scene about?"
+										className={
+											errors['scene.topic'] ? 'bt-err' : ''
+										}
+									/>
+								</div>
+								<div className="bt-field">
+									<label>Tone *</label>
+									<input
+										type="text"
+										value={state.scene.tone}
+										onChange={e =>
+											updateScene('tone', e.target.value)
+										}
+										placeholder="Emotional atmosphere..."
+										className={
+											errors['scene.tone'] ? 'bt-err' : ''
+										}
+									/>
+								</div>
 							</div>
-							<div className="bt-field">
-								<label>Tension Level</label>
-								<select
-									value={
-										state.scene?.tension
-											?.level ||
-										'relaxed'
-									}
-									onChange={e =>
-										updateTension(
-											'level',
-											e.target
-												.value,
-										)
-									}
-								>
-									{TENSION_LEVELS.map(l => (
-										<option
-											key={l}
-											value={l}
-										>
-											{l}
-										</option>
-									))}
-								</select>
-							</div>
-							<div className="bt-field">
-								<label>Direction</label>
-								<select
-									value={
-										state.scene?.tension
-											?.direction ||
-										'stable'
-									}
-									onChange={e =>
-										updateTension(
-											'direction',
-											e.target
-												.value,
-										)
-									}
-								>
-									{TENSION_DIRECTIONS.map(
-										d => (
-											<option
-												key={
-													d
-												}
-												value={
-													d
-												}
-											>
-												{d}
+
+							{/* Tension */}
+							<div className="bt-row-3">
+								<div className="bt-field">
+									<label>Tension Level</label>
+									<select
+										value={state.scene.tension.level}
+										onChange={e =>
+											updateTension(
+												'level',
+												e.target.value,
+											)
+										}
+									>
+										{TENSION_LEVELS.map(l => (
+											<option key={l} value={l}>
+												{l.charAt(0).toUpperCase() +
+													l.slice(1)}
 											</option>
-										),
-									)}
-								</select>
-							</div>
-						</div>
-						<div className="bt-field">
-							<label>Recent Events</label>
-							<EventListEditor
-								events={
-									state.scene?.recentEvents ||
-									[]
-								}
-								onChange={events =>
-									updateScene(
-										'recentEvents',
-										events,
-									)
-								}
-							/>
-						</div>
-					</fieldset>
-
-					{/* Date & Time */}
-					<fieldset className="bt-section">
-						<legend>
-							<i className="fa-solid fa-calendar-clock"></i>{' '}
-							Date &amp; Time
-						</legend>
-
-						{/* Date row */}
-						<div className="bt-row-3">
-							<div className="bt-field">
-								<label>Year</label>
-								<input
-									type="number"
-									min={1}
-									max={9999}
-									value={state.time.year}
-									onChange={e =>
-										updateTime(
-											'year',
-											parseInt(
-												e
-													.target
-													.value,
-											) || 2024,
-										)
-									}
-									className={
-										errors['time.year']
-											? 'bt-err'
-											: ''
-									}
-								/>
-							</div>
-							<div className="bt-field">
-								<label>Month</label>
-								<select
-									value={state.time.month}
-									onChange={e =>
-										updateTime(
-											'month',
-											parseInt(
-												e
-													.target
-													.value,
-											),
-										)
-									}
-									className={
-										errors['time.month']
-											? 'bt-err'
-											: ''
-									}
-								>
-									{MONTH_NAMES.map(
-										(m, idx) => (
-											<option
-												key={
-													m
-												}
-												value={
-													idx +
-													1
-												}
-											>
-												{m}
+										))}
+									</select>
+								</div>
+								<div className="bt-field">
+									<label>Direction</label>
+									<select
+										value={state.scene.tension.direction}
+										onChange={e =>
+											updateTension(
+												'direction',
+												e.target.value,
+											)
+										}
+									>
+										{TENSION_DIRECTIONS.map(d => (
+											<option key={d} value={d}>
+												{d.charAt(0).toUpperCase() +
+													d.slice(1)}
 											</option>
-										),
-									)}
-								</select>
+										))}
+									</select>
+								</div>
+								<div className="bt-field">
+									<label>Type</label>
+									<select
+										value={state.scene.tension.type}
+										onChange={e =>
+											updateTension(
+												'type',
+												e.target.value,
+											)
+										}
+									>
+										{TENSION_TYPES.map(t => (
+											<option key={t} value={t}>
+												{t.charAt(0).toUpperCase() +
+													t.slice(1)}
+											</option>
+										))}
+									</select>
+								</div>
 							</div>
-							<div className="bt-field">
-								<label>Day</label>
-								<input
-									type="number"
-									min={1}
-									max={maxDaysInMonth}
-									value={state.time.day}
-									onChange={e =>
-										updateTime(
-											'day',
-											parseInt(
-												e
-													.target
-													.value,
-											) || 1,
-										)
-									}
-									className={
-										errors['time.day']
-											? 'bt-err'
-											: ''
-									}
-								/>
-							</div>
-						</div>
 
-						{/* Time row */}
-						<div className="bt-row-3">
+							{/* Recent Events */}
 							<div className="bt-field">
-								<label>Hour (0-23)</label>
-								<input
-									type="number"
-									min={0}
-									max={23}
-									value={state.time.hour}
+								<label>Recent Events</label>
+								<EventListEditor
+									events={state.scene.recentEvents}
 									onChange={e =>
-										updateTime(
-											'hour',
-											parseInt(
-												e
-													.target
-													.value,
-											) || 0,
-										)
-									}
-									className={
-										errors['time.hour']
-											? 'bt-err'
-											: ''
+										updateScene('recentEvents', e)
 									}
 								/>
 							</div>
-							<div className="bt-field">
-								<label>Minute</label>
-								<input
-									type="number"
-									min={0}
-									max={59}
-									value={state.time.minute}
-									onChange={e =>
-										updateTime(
-											'minute',
-											parseInt(
-												e
-													.target
-													.value,
-											) || 0,
-										)
-									}
-									className={
-										errors[
-											'time.minute'
-										]
-											? 'bt-err'
-											: ''
-									}
-								/>
+						</fieldset>
+					)}
+
+					{/* Time */}
+					{hasTime && state.time && (
+						<fieldset className="bt-section">
+							<legend>
+								<i className="fa-regular fa-clock"></i> Time
+								<button
+									type="button"
+									className="bt-section-remove"
+									onClick={removeTime}
+									title="Remove section"
+								>
+									<i className="fa-solid fa-trash"></i>
+								</button>
+							</legend>
+							{/* Date row */}
+							<div className="bt-row-3">
+								<div className="bt-field">
+									<label>Year</label>
+									<input
+										type="number"
+										min={1}
+										max={9999}
+										value={state.time.year}
+										onChange={e =>
+											updateTime(
+												'year',
+												parseInt(e.target.value) ||
+												2024,
+											)
+										}
+										className={
+											errors['time.year'] ? 'bt-err' : ''
+										}
+									/>
+								</div>
+								<div className="bt-field">
+									<label>Month</label>
+									<select
+										value={state.time.month}
+										onChange={e =>
+											updateTime(
+												'month',
+												parseInt(e.target.value),
+											)
+										}
+										className={
+											errors['time.month'] ? 'bt-err' : ''
+										}
+									>
+										{MONTH_NAMES.map((name, idx) => (
+											<option key={idx} value={idx + 1}>
+												{name}
+											</option>
+										))}
+									</select>
+								</div>
+								<div className="bt-field">
+									<label>Day</label>
+									<input
+										type="number"
+										min={1}
+										max={maxDaysInMonth}
+										value={state.time.day}
+										onChange={e =>
+											updateTime(
+												'day',
+												parseInt(
+													e.target.value,
+												) || 1,
+											)
+										}
+										className={
+											errors['time.day']
+												? 'bt-err'
+												: ''
+										}
+									/>
+								</div>
 							</div>
-							<div className="bt-field">
-								<label>Day of Week</label>
-								<input
-									type="text"
-									value={state.time.dayOfWeek}
-									disabled
-									style={{
-										opacity: 0.7,
-										cursor: 'not-allowed',
-									}}
-								/>
+
+							{/* Time row */}
+							<div className="bt-row-3">
+								<div className="bt-field">
+									<label>Hour (0-23)</label>
+									<input
+										type="number"
+										min={0}
+										max={23}
+										value={state.time.hour}
+										onChange={e =>
+											updateTime(
+												'hour',
+												parseInt(
+													e.target.value,
+												) || 0,
+											)
+										}
+										className={
+											errors['time.hour']
+												? 'bt-err'
+												: ''
+										}
+									/>
+								</div>
+								<div className="bt-field">
+									<label>Minute</label>
+									<input
+										type="number"
+										min={0}
+										max={59}
+										value={state.time.minute}
+										onChange={e =>
+											updateTime(
+												'minute',
+												parseInt(
+													e.target.value,
+												) || 0,
+											)
+										}
+										className={
+											errors['time.minute']
+												? 'bt-err'
+												: ''
+										}
+									/>
+								</div>
+								<div className="bt-field">
+									<label>Day of Week</label>
+									<input
+										type="text"
+										value={state.time.dayOfWeek}
+										disabled
+										style={{
+											opacity: 0.7,
+											cursor: 'not-allowed',
+										}}
+									/>
+								</div>
 							</div>
-						</div>
-					</fieldset>
+						</fieldset>
+					)}
 
 					{/* Location */}
-					<fieldset className="bt-section">
-						<legend>
-							<i className="fa-solid fa-map-marker-alt"></i>{' '}
-							Location
-						</legend>
-						<div className="bt-field">
-							<label>Area *</label>
-							<input
-								type="text"
-								value={state.location.area}
-								onChange={e =>
-									updateLocation(
-										'area',
-										e.target.value,
-									)
-								}
-								placeholder="City, district, region..."
-								className={
-									errors['location.area']
-										? 'bt-err'
-										: ''
-								}
-							/>
-						</div>
-						<div className="bt-field">
-							<label>Place *</label>
-							<input
-								type="text"
-								value={state.location.place}
-								onChange={e =>
-									updateLocation(
-										'place',
-										e.target.value,
-									)
-								}
-								placeholder="Building, establishment, room..."
-								className={
-									errors['location.place']
-										? 'bt-err'
-										: ''
-								}
-							/>
-						</div>
-						<div className="bt-field">
-							<label>Position *</label>
-							<input
-								type="text"
-								value={state.location.position}
-								onChange={e =>
-									updateLocation(
-										'position',
-										e.target.value,
-									)
-								}
-								placeholder="Position within the place..."
-								className={
-									errors['location.position']
-										? 'bt-err'
-										: ''
-								}
-							/>
-						</div>
-						<div className="bt-field">
-							<label>Props</label>
-							<TagInput
-								tags={state.location.props || []}
-								onChange={t =>
-									updateLocation('props', t)
-								}
-								placeholder="Add props..."
-							/>
-						</div>
-					</fieldset>
-
-					{/* Climate */}
-					<fieldset className="bt-section">
-						<legend>
-							<i className="fa-solid fa-cloud-sun"></i>{' '}
-							Climate
-						</legend>
-						<div className="bt-row-2">
-							<div className="bt-field">
-								<label>Weather</label>
-								<select
-									value={
-										state.climate
-											?.weather ||
-										'sunny'
-									}
-									onChange={e =>
-										updateClimate(
-											'weather',
-											e.target
-												.value as Climate['weather'],
-										)
-									}
+					{hasLocation && state.location && (
+						<fieldset className="bt-section">
+							<legend>
+								<i className="fa-solid fa-map-marker-alt"></i>{' '}
+								Location
+								<button
+									type="button"
+									className="bt-section-remove"
+									onClick={removeLocation}
+									title="Remove section"
 								>
-									{WEATHER_OPTIONS.map(w => (
-										<option
-											key={w}
-											value={w}
-										>
-											{w
-												.charAt(
-													0,
-												)
-												.toUpperCase() +
-												w.slice(
-													1,
-												)}
-										</option>
-									))}
-								</select>
-							</div>
+									<i className="fa-solid fa-trash"></i>
+								</button>
+							</legend>
 							<div className="bt-field">
-								<label>
-									Temperature (
-									{tempUnit === 'celsius'
-										? '°C'
-										: '°F'}
-									)
-								</label>
+								<label>Area *</label>
 								<input
-									type="number"
-									value={toDisplayTemp(
-										state.climate
-											?.temperature ??
-											70,
-										tempUnit,
-									)}
+									type="text"
+									value={state.location.area}
 									onChange={e =>
-										updateClimate(
-											'temperature',
-											toStorageTemp(
-												parseInt(
-													e
-														.target
-														.value,
-												) ||
-													0,
-												tempUnit,
-											),
+										updateLocation(
+											'area',
+											e.target.value,
 										)
+									}
+									placeholder="City, district, region..."
+									className={
+										errors['location.area']
+											? 'bt-err'
+											: ''
 									}
 								/>
 							</div>
+							<div className="bt-field">
+								<label>Place *</label>
+								<input
+									type="text"
+									value={state.location.place}
+									onChange={e =>
+										updateLocation(
+											'place',
+											e.target.value,
+										)
+									}
+									placeholder="Building, establishment, room..."
+									className={
+										errors['location.place']
+											? 'bt-err'
+											: ''
+									}
+								/>
+							</div>
+							<div className="bt-field">
+								<label>Position *</label>
+								<input
+									type="text"
+									value={state.location.position}
+									onChange={e =>
+										updateLocation(
+											'position',
+											e.target.value,
+										)
+									}
+									placeholder="Position within the place..."
+									className={
+										errors['location.position']
+											? 'bt-err'
+											: ''
+									}
+								/>
+							</div>
+							<div className="bt-field">
+								<label>Props</label>
+								<TagInput
+									tags={state.location.props || []}
+									onChange={t =>
+										updateLocation('props', t)
+									}
+									placeholder="Add props..."
+								/>
+							</div>
+						</fieldset>
+					)}
+
+					{/* Climate */}
+					{hasClimate && state.climate && (
+						<fieldset className="bt-section">
+							<legend>
+								<i className="fa-solid fa-cloud-sun"></i>{' '}
+								Climate
+								<button
+									type="button"
+									className="bt-section-remove"
+									onClick={removeClimate}
+									title="Remove section"
+								>
+									<i className="fa-solid fa-trash"></i>
+								</button>
+							</legend>
+							<div className="bt-row-2">
+								<div className="bt-field">
+									<label>Weather</label>
+									<select
+										value={state.climate.weather}
+										onChange={e =>
+											updateClimate(
+												'weather',
+												e.target.value as Climate['weather'],
+											)
+										}
+									>
+										{WEATHER_OPTIONS.map(w => (
+											<option key={w} value={w}>
+												{w.charAt(0).toUpperCase() +
+													w.slice(1)}
+											</option>
+										))}
+									</select>
+								</div>
+								<div className="bt-field">
+									<label>
+										Temperature (
+										{tempUnit === 'celsius'
+											? '°C'
+											: '°F'}
+										)
+									</label>
+									<input
+										type="number"
+										value={toDisplayTemp(
+											state.climate.temperature,
+											tempUnit,
+										)}
+										onChange={e =>
+											updateClimate(
+												'temperature',
+												toStorageTemp(
+													parseInt(
+														e.target.value,
+													) || 0,
+													tempUnit,
+												),
+											)
+										}
+									/>
+								</div>
+							</div>
+						</fieldset>
+					)}
+
+					{/* Add section buttons for scene tab */}
+					{(missingSections.scene || missingSections.time || missingSections.location || missingSections.climate) && (
+						<div className="bt-add-sections">
+							<span className="bt-add-sections-label">Add:</span>
+							{missingSections.scene && (
+								<button type="button" onClick={addScene} className="bt-btn-small">
+									<i className="fa-solid fa-clapperboard"></i> Scene
+								</button>
+							)}
+							{missingSections.time && (
+								<button type="button" onClick={addTime} className="bt-btn-small">
+									<i className="fa-regular fa-clock"></i> Time
+								</button>
+							)}
+							{missingSections.location && (
+								<button type="button" onClick={addLocation} className="bt-btn-small">
+									<i className="fa-solid fa-map-marker-alt"></i> Location
+								</button>
+							)}
+							{missingSections.climate && (
+								<button type="button" onClick={addClimate} className="bt-btn-small">
+									<i className="fa-solid fa-cloud-sun"></i> Climate
+								</button>
+							)}
 						</div>
-					</fieldset>
+					)}
 				</div>
 			)}
 
 			{/* Characters Tab */}
-			{tab === 'chars' && (
+			{tab === 'chars' && hasCharacters && state.characters && (
 				<div className="bt-panel">
+					<div className="bt-section-header">
+						<span>Characters</span>
+						<button
+							type="button"
+							className="bt-section-remove"
+							onClick={removeCharacters}
+							title="Remove all characters"
+						>
+							<i className="fa-solid fa-trash"></i> Remove Section
+						</button>
+					</div>
 					<div className="bt-chars-list">
 						{state.characters.map((char, idx) => (
 							<CharacterEditor
@@ -1233,6 +1345,16 @@ export function StateEditor({ initialState, onSave, onCancel }: StateEditorProps
 						className="bt-add-char"
 					>
 						<i className="fa-solid fa-plus"></i> Add Character
+					</button>
+				</div>
+			)}
+
+			{/* Show characters add button if on scene tab but no characters */}
+			{tab === 'scene' && missingSections.characters && (
+				<div className="bt-add-sections" style={{ marginTop: '1rem', borderTop: '1px solid var(--SmartThemeBorderColor)', paddingTop: '1rem' }}>
+					<span className="bt-add-sections-label">Add:</span>
+					<button type="button" onClick={() => { addCharacters(); setTab('chars'); }} className="bt-btn-small">
+						<i className="fa-solid fa-users"></i> Characters
 					</button>
 				</div>
 			)}

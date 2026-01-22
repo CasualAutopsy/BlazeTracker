@@ -12,12 +12,17 @@ export interface NarrativeDateTime {
 	dayOfWeek: string; // "Monday", "Tuesday", etc.
 }
 
+/**
+ * TrackedState contains all extracted scene information.
+ * All fields are optional - they will only be present if their
+ * respective extraction module is enabled in settings.
+ */
 export interface TrackedState {
-	time: NarrativeDateTime;
-	location: LocationState;
-	climate: Climate;
+	time?: NarrativeDateTime;
+	location?: LocationState;
+	climate?: Climate;
 	scene?: Scene;
-	characters: Character[];
+	characters?: Character[];
 }
 
 export interface LocationState {
@@ -86,15 +91,3 @@ export interface StoredStateData {
 	state: TrackedState;
 	extractedAt: string;
 }
-
-// ============================================
-// Re-exports from individual extractors
-// (for backwards compatibility)
-// ============================================
-
-// Note: Individual schemas are now defined in their respective extractor modules:
-// - extractTime.ts: DATETIME_SCHEMA, DELTA_SCHEMA
-// - extractLocation.ts: LOCATION_SCHEMA
-// - extractClimate.ts: CLIMATE_SCHEMA
-// - extractCharacters.ts: CHARACTERS_SCHEMA
-// - extractScene.ts: SCENE_SCHEMA
