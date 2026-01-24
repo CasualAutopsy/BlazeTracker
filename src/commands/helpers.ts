@@ -39,3 +39,17 @@ export function countExtractedMessages(context: STContext): { extracted: number;
 
 	return { extracted, total };
 }
+
+/**
+ * Find the ID of the last message that has extracted state.
+ * Returns -1 if no messages have state.
+ */
+export function getLastExtractedMessageId(context: STContext): number {
+	for (let i = context.chat.length - 1; i >= 0; i--) {
+		const message = context.chat[i];
+		if (getMessageState(message)) {
+			return i;
+		}
+	}
+	return -1;
+}

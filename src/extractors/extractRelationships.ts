@@ -216,8 +216,16 @@ export async function extractInitialRelationship(
 		const relationship = buildRelationship(pair, parsed, undefined, params.messageId);
 
 		// Automatically add first_meeting milestone for new relationships
-		if (relationship && params.messageId !== undefined && params.currentTime && params.currentLocation) {
-			const locationStr = [params.currentLocation.place, params.currentLocation.area]
+		if (
+			relationship &&
+			params.messageId !== undefined &&
+			params.currentTime &&
+			params.currentLocation
+		) {
+			const locationStr = [
+				params.currentLocation.place,
+				params.currentLocation.area,
+			]
 				.filter(Boolean)
 				.join(', ');
 			const timeOfDay = getTimeOfDay(params.currentTime.hour);
@@ -303,6 +311,7 @@ export async function refreshRelationship(
 export function updateRelationshipFromSignal(
 	relationship: Relationship,
 	signal: RelationshipSignal,
+	messageId?: number,
 ): Relationship {
 	// Create a copy to modify
 	const updated = { ...relationship };
@@ -346,6 +355,7 @@ export function updateRelationshipFromSignal(
 	}
 
 	// Add milestones if provided and not duplicates
+	let milestonesAdded = false;
 	if (signal.milestones && signal.milestones.length > 0) {
 		for (const milestone of signal.milestones) {
 			const hasMilestone = updated.milestones.some(
@@ -353,6 +363,51 @@ export function updateRelationshipFromSignal(
 			);
 			if (!hasMilestone) {
 				updated.milestones = [...updated.milestones, milestone];
+				milestonesAdded = true;
+			}
+		}
+	}
+
+	// If milestones were added, check if we should upgrade the status
+	// Milestones enable progression - if we have close milestones, we can be close
+	if (milestonesAdded) {
+		const maxStatus = inferMaximumStatus(updated.milestones);
+		const maxRank = getStatusRank(maxStatus);
+		const currentRank = getStatusRank(updated.status);
+
+		// Only upgrade positive statuses, and respect one-step-at-a-time
+		if (currentRank >= 0 && currentRank < maxRank) {
+			// Check cooldown - need enough messages since last status change
+			let canUpgrade = true;
+			if (messageId !== undefined && updated.versions.length > 0) {
+				const settings = getSettings();
+				const minMessages = settings.relationshipUpgradeCooldown;
+				const lastVersion = updated.versions[updated.versions.length - 1];
+				const messagesSinceLastChange = messageId - lastVersion.messageId;
+
+				if (messagesSinceLastChange < minMessages) {
+					canUpgrade = false;
+				}
+			}
+
+			if (canUpgrade) {
+				// Upgrade one step toward the max allowed by milestones
+				const newRank = currentRank + 1;
+				updated.status = getStatusFromRank(newRank);
+
+				// Record the version change
+				if (messageId !== undefined) {
+					updated.versions = [
+						...updated.versions,
+						{
+							messageId,
+							status: updated.status,
+							aToB: updated.aToB,
+							bToA: updated.bToA,
+							milestones: updated.milestones,
+						},
+					];
+				}
 			}
 		}
 	}
@@ -422,39 +477,87 @@ function inferMinimumStatus(feelings: string[]): RelationshipStatus | null {
 }
 
 /**
- * Milestones that indicate a romantic relationship has begun.
- * Without at least one of these, "intimate" status is not appropriate.
+ * Milestones that gate progression from acquaintances → friendly.
+ * Requires at least one of these to become friendly.
  */
-const ROMANTIC_GATE_MILESTONES = new Set([
+const FRIENDLY_GATE_MILESTONES = new Set([
+	'first_laugh',
+	'first_gift',
+	'first_shared_meal',
+	'first_shared_activity',
+	'first_alliance',
+	'first_compliment',
+	'first_tease',
+	'first_helped',
+	'first_common_interest',
+	'first_outing',
+]);
+
+/**
+ * Milestones that gate progression from friendly → close.
+ * Requires at least one of these to become close.
+ */
+const CLOSE_GATE_MILESTONES = new Set([
+	'emotional_intimacy',
+	'secret_shared',
+	'confession',
+	'first_sleepover',
+	'sacrifice',
+	'reconciliation',
+	'first_support',
+	'first_comfort',
+	'defended',
+	'crisis_together',
+	'first_vulnerability',
+	'trusted_with_task',
+]);
+
+/**
+ * Milestones that gate progression from close → intimate.
+ * Requires at least one of these to become intimate.
+ */
+const INTIMATE_GATE_MILESTONES = new Set([
 	'first_kiss',
 	'first_date',
 	'first_i_love_you',
-	'promised_exclusivity',
-	'marriage',
-	// Sexual milestones
+	'first_touch',
+	'first_embrace',
+	'first_heated',
 	'first_foreplay',
 	'first_oral',
 	'first_manual',
 	'first_penetrative',
 	'first_climax',
+	'promised_exclusivity',
+	'marriage',
 ]);
 
 /**
  * Infer maximum relationship status based on milestones.
  * This caps status to prevent models from over-estimating relationship depth.
+ * Checks from highest to lowest tier to find the maximum allowed status.
  */
-function inferMaximumStatus(milestones: Array<{ type: string }>): RelationshipStatus | null {
-	const milestoneTypes = new Set(milestones.map(m => m.type));
+function inferMaximumStatus(milestones: Array<{ type: string }>): RelationshipStatus {
+	const types = new Set(milestones.map(m => m.type));
 
-	// Check for any romantic gate milestone
-	const hasRomanticMilestone = [...ROMANTIC_GATE_MILESTONES].some(m => milestoneTypes.has(m));
+	// Check from highest to lowest tier
+	// Intimate requires romantic/physical milestones
+	if ([...INTIMATE_GATE_MILESTONES].some(m => types.has(m))) {
+		return 'intimate';
+	}
 
-	// If no romantic milestones at all, cap at "close" (deep friendship, not romantic)
-	if (!hasRomanticMilestone) {
+	// Close requires deep trust/emotional milestones
+	if ([...CLOSE_GATE_MILESTONES].some(m => types.has(m))) {
 		return 'close';
 	}
 
-	return null; // No cap
+	// Friendly requires bonding milestones
+	if ([...FRIENDLY_GATE_MILESTONES].some(m => types.has(m))) {
+		return 'friendly';
+	}
+
+	// No qualifying milestones - cap at acquaintances
+	return 'acquaintances';
 }
 
 /**
@@ -488,6 +591,56 @@ function getStatusFromRank(rank: number): RelationshipStatus {
 		4: 'intimate',
 	};
 	return rankToStatus[rank] ?? 'acquaintances';
+}
+
+/**
+ * Enforce gradual relationship progression.
+ * - Positive progression: can only move one step at a time (strangers → acquaintances → friendly → close)
+ * - Negative progression: can move faster (conflicts escalate quickly)
+ * - Cooldown: must wait relationshipUpgradeCooldown messages before upgrading again
+ *
+ * Returns the capped status rank.
+ */
+function enforceGradualProgression(
+	proposedRank: number,
+	existing: Relationship | undefined,
+	currentMessageId: number | undefined,
+): number {
+	if (!existing) {
+		// New relationship - start at acquaintances max (rank 1), unless negative
+		if (proposedRank > 1) {
+			return 1; // acquaintances
+		}
+		return proposedRank;
+	}
+
+	const currentRank = getStatusRank(existing.status);
+
+	// If not upgrading (staying same or going down), allow it
+	if (proposedRank <= currentRank) {
+		return proposedRank;
+	}
+
+	// Upgrading - enforce one step at a time
+	const maxAllowedRank = currentRank + 1;
+	let cappedRank = Math.min(proposedRank, maxAllowedRank);
+
+	// Check cooldown - need enough messages since last status change
+	const settings = getSettings();
+	const minMessages = settings.relationshipUpgradeCooldown;
+
+	if (currentMessageId !== undefined && existing.versions.length > 0) {
+		// Find the most recent version (last status change)
+		const lastVersion = existing.versions[existing.versions.length - 1];
+		const messagesSinceLastChange = currentMessageId - lastVersion.messageId;
+
+		if (messagesSinceLastChange < minMessages) {
+			// Not enough messages have passed - don't allow upgrade
+			cappedRank = currentRank;
+		}
+	}
+
+	return cappedRank;
 }
 
 function buildRelationship(
@@ -538,15 +691,22 @@ function buildRelationship(
 	}
 
 	// Apply maximum cap based on milestones (only for positive statuses)
-	// We need the existing relationship's milestones to check this
+	// This prevents relationships from jumping too high without the requisite milestones
 	if (existing && currentRank > 0) {
 		const maxStatus = inferMaximumStatus(existing.milestones);
-		if (maxStatus) {
-			const maxRank = getStatusRank(maxStatus);
-			if (currentRank > maxRank) {
-				status = maxStatus;
-			}
+		const maxRank = getStatusRank(maxStatus);
+		if (currentRank > maxRank) {
+			currentRank = maxRank;
+			status = maxStatus;
 		}
+	}
+
+	// Enforce gradual progression (one step at a time, with cooldown)
+	// This prevents relationships from jumping from strangers to close in a few messages
+	const gradualRank = enforceGradualProgression(currentRank, existing, messageId);
+	if (gradualRank !== currentRank) {
+		currentRank = gradualRank;
+		status = getStatusFromRank(currentRank);
 	}
 
 	// Determine if status changed

@@ -2,7 +2,7 @@
 // Event Editor Component
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useCallback } from 'react';
 import type {
 	TimestampedEvent,
 	EventType,
@@ -24,11 +24,19 @@ export interface EventEditorProps {
 	onCancel: () => void;
 }
 
+export interface EventEditorHandle {
+	/** Get the current edited event state */
+	getCurrentState: () => TimestampedEvent;
+}
+
 // ============================================
 // Component
 // ============================================
 
-export function EventEditor({ event, onSave, onCancel }: EventEditorProps) {
+export const EventEditor = forwardRef<EventEditorHandle, EventEditorProps>(function EventEditor(
+	{ event, onSave, onCancel },
+	ref,
+) {
 	const [summary, setSummary] = useState(event.summary);
 	const [eventTypes, setEventTypes] = useState<EventType[]>(
 		event.eventTypes || ['conversation'],
@@ -49,7 +57,8 @@ export function EventEditor({ event, onSave, onCancel }: EventEditorProps) {
 	const [newMilestoneType, setNewMilestoneType] = useState<MilestoneType>('first_meeting');
 	const [newMilestoneDesc, setNewMilestoneDesc] = useState('');
 
-	const handleSave = () => {
+	/** Build the current edited event from state */
+	const buildCurrentEvent = useCallback((): TimestampedEvent => {
 		const updatedEvent: TimestampedEvent = {
 			...event,
 			summary,
@@ -70,7 +79,31 @@ export function EventEditor({ event, onSave, onCancel }: EventEditorProps) {
 			updatedEvent.relationshipSignal = undefined;
 		}
 
-		onSave(updatedEvent);
+		return updatedEvent;
+	}, [
+		event,
+		summary,
+		eventTypes,
+		tensionLevel,
+		tensionType,
+		witnesses,
+		hasPair,
+		pairChar1,
+		pairChar2,
+		milestones,
+	]);
+
+	// Expose getCurrentState method via ref
+	useImperativeHandle(
+		ref,
+		() => ({
+			getCurrentState: buildCurrentEvent,
+		}),
+		[buildCurrentEvent],
+	);
+
+	const handleSave = () => {
+		onSave(buildCurrentEvent());
 	};
 
 	const handleAddMilestone = () => {
@@ -349,4 +382,4 @@ export function EventEditor({ event, onSave, onCancel }: EventEditorProps) {
 			</div>
 		</div>
 	);
-}
+});

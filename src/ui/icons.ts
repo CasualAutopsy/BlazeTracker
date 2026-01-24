@@ -241,6 +241,15 @@ export const EVENT_TYPE_ICONS: Record<EventType, string> = {
 	// Social
 	social: 'fa-users',
 	achievement: 'fa-trophy',
+
+	// Support & Protection
+	helped: 'fa-hands-helping',
+	common_interest: 'fa-puzzle-piece',
+	outing: 'fa-map-location-dot',
+	defended: 'fa-shield-halved',
+	crisis_together: 'fa-person-shelter',
+	vulnerability: 'fa-heart-crack',
+	entrusted: 'fa-key',
 };
 
 /**
@@ -311,6 +320,15 @@ export const EVENT_TYPE_COLORS: Record<EventType, string> = {
 	// Social - greens
 	social: '#22c55e',
 	achievement: '#f59e0b',
+
+	// Support & Protection - teals/blues
+	helped: '#14b8a6', // teal-500
+	common_interest: '#06b6d4', // cyan-500
+	outing: '#3b82f6', // blue-500
+	defended: '#6366f1', // indigo-500
+	crisis_together: '#ef4444', // red-500
+	vulnerability: '#a855f7', // purple-500
+	entrusted: '#f59e0b', // amber-500
 };
 
 /**
@@ -335,8 +353,10 @@ export const EVENT_TYPE_PRIORITY: readonly EventType[] = [
 	'intimate_embrace',
 	'intimate_touch',
 	// Then high-drama events
+	'crisis_together',
 	'combat',
 	'danger',
+	'defended',
 	'betrayal',
 	'confession',
 	'argument',
@@ -365,6 +385,11 @@ export const EVENT_TYPE_PRIORITY: readonly EventType[] = [
 	'shared_activity',
 	// Then social/support
 	'supportive',
+	'vulnerability',
+	'entrusted',
+	'helped',
+	'common_interest',
+	'outing',
 	'achievement',
 	'social',
 	'negotiation',

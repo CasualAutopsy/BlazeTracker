@@ -457,17 +457,13 @@ export async function extractState(
 
 					if (relationship) {
 						// Pop version if re-extracting this message (swipe/re-extract)
-						popVersionForMessage(
-							relationship,
-							messageId,
-						);
+						popVersionForMessage(relationship, messageId);
 						// Check if signal has milestones - if so, do a full LLM refresh
 						const hasMilestones =
 							signal.milestones &&
 							signal.milestones.length > 0;
 
 						if (hasMilestones) {
-
 							const relationshipMessages =
 								formatMessagesForRelationship(
 									context,
@@ -493,6 +489,7 @@ export async function extractState(
 									updateRelationshipFromSignal(
 										refreshed,
 										signal,
+										messageId,
 									);
 							} else {
 								// Fallback to simple update if refresh fails
@@ -500,6 +497,7 @@ export async function extractState(
 									updateRelationshipFromSignal(
 										relationship,
 										signal,
+										messageId,
 									);
 							}
 						} else {
@@ -507,6 +505,7 @@ export async function extractState(
 							relationship = updateRelationshipFromSignal(
 								relationship,
 								signal,
+								messageId,
 							);
 						}
 
@@ -541,6 +540,7 @@ export async function extractState(
 								updateRelationshipFromSignal(
 									newRelationship,
 									signal,
+									messageId,
 								);
 							updateRelationship(
 								narrativeState,

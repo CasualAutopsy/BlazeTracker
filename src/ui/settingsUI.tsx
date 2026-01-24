@@ -578,6 +578,29 @@ function SettingsPanel() {
 
 			<hr />
 
+			{/* Relationship Settings */}
+			<div className="bt-relationship-settings">
+				<div className="bt-section-header">
+					<strong>Relationship Settings</strong>
+					<small>Configure relationship progression behavior</small>
+				</div>
+
+				<NumberField
+					id="blazetracker-relationship-cooldown"
+					label="Upgrade Cooldown (messages)"
+					description="Minimum messages between relationship status upgrades"
+					value={settings.relationshipUpgradeCooldown}
+					min={1}
+					max={20}
+					step={1}
+					onChange={v =>
+						handleUpdate('relationshipUpgradeCooldown', v)
+					}
+				/>
+			</div>
+
+			<hr />
+
 			{/* Temperature Unit */}
 			<SelectField
 				id="blazetracker-tempunit"

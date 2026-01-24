@@ -2,7 +2,7 @@
 // Event List Component
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import type { TimestampedEvent, NarrativeDateTime, EventType } from '../../types/state';
 import {
 	getTensionLevelIcon,
@@ -13,11 +13,23 @@ import {
 	getEventTypeColor,
 	EVENT_TYPE_PRIORITY,
 } from '../icons';
-import { EventEditor } from './EventEditor';
+import { EventEditor, type EventEditorHandle } from './EventEditor';
 
 // ============================================
 // Types
 // ============================================
+
+export interface PendingEdit {
+	index: number;
+	event: TimestampedEvent;
+}
+
+export interface EventListHandle {
+	/** Get any pending edit without committing (returns null if no edit in progress) */
+	getPendingEdit: () => PendingEdit | null;
+	/** Commit any pending edits and return true if there were pending edits */
+	commitPendingEdits: () => boolean;
+}
 
 interface EventListProps {
 	events: TimestampedEvent[];
@@ -229,15 +241,12 @@ function EventItem({
 	);
 }
 
-export function EventList({
-	events,
-	presentCharacters,
-	maxEvents,
-	editMode,
-	onUpdate,
-	onDelete,
-}: EventListProps) {
+export const EventList = forwardRef<EventListHandle, EventListProps>(function EventList(
+	{ events, presentCharacters, maxEvents, editMode, onUpdate, onDelete },
+	ref,
+) {
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
+	const eventEditorRef = useRef<EventEditorHandle>(null);
 
 	// Get the most recent events (from the end of the array)
 	const recentEvents = maxEvents ? events.slice(-maxEvents) : events;
@@ -263,16 +272,51 @@ export function EventList({
 		}
 	};
 
-	const handleSaveEdit = (event: TimestampedEvent) => {
-		if (onUpdate && editingIndex !== null) {
-			onUpdate(editingIndex, event);
-			setEditingIndex(null);
-		}
-	};
+	const handleSaveEdit = useCallback(
+		(event: TimestampedEvent) => {
+			if (onUpdate && editingIndex !== null) {
+				onUpdate(editingIndex, event);
+				setEditingIndex(null);
+			}
+		},
+		[onUpdate, editingIndex],
+	);
 
 	const handleCancelEdit = () => {
 		setEditingIndex(null);
 	};
+
+	// Get any pending edit without committing
+	const getPendingEdit = useCallback((): PendingEdit | null => {
+		if (editingIndex !== null && eventEditorRef.current) {
+			return {
+				index: editingIndex,
+				event: eventEditorRef.current.getCurrentState(),
+			};
+		}
+		return null;
+	}, [editingIndex]);
+
+	// Commit any pending edits by getting the current state from the editor
+	const commitPendingEdits = useCallback((): boolean => {
+		if (editingIndex !== null && eventEditorRef.current && onUpdate) {
+			const currentState = eventEditorRef.current.getCurrentState();
+			onUpdate(editingIndex, currentState);
+			setEditingIndex(null);
+			return true;
+		}
+		return false;
+	}, [editingIndex, onUpdate]);
+
+	// Expose methods via ref
+	useImperativeHandle(
+		ref,
+		() => ({
+			getPendingEdit,
+			commitPendingEdits,
+		}),
+		[getPendingEdit, commitPendingEdits],
+	);
 
 	if (displayEvents.length === 0) {
 		return (
@@ -290,6 +334,7 @@ export function EventList({
 			{editingIndex !== null && eventBeingEdited && (
 				<div className="bt-event-editor-container">
 					<EventEditor
+						ref={eventEditorRef}
 						event={eventBeingEdited}
 						onSave={handleSaveEdit}
 						onCancel={handleCancelEdit}
@@ -319,4 +364,4 @@ export function EventList({
 			})}
 		</div>
 	);
-}
+});

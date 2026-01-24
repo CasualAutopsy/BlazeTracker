@@ -32,6 +32,7 @@ export interface BlazeTrackerSettings {
 	// Relationship settings
 	relationshipRefreshInterval: number;
 	includeRelationshipSecrets: boolean;
+	relationshipUpgradeCooldown: number;
 	// Other settings
 	leapThresholdMinutes: number;
 	temperatureUnit: 'fahrenheit' | 'celsius';
@@ -63,6 +64,7 @@ export const defaultSettings: BlazeTrackerSettings = {
 	// Relationship settings
 	relationshipRefreshInterval: 10,
 	includeRelationshipSecrets: true,
+	relationshipUpgradeCooldown: 4,
 	// Other defaults
 	leapThresholdMinutes: 20,
 	temperatureUnit: 'fahrenheit',

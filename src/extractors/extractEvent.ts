@@ -394,13 +394,19 @@ function validateEventTypes(data: unknown): EventType[] {
  * Map event types to potential milestone types.
  */
 const EVENT_TYPE_TO_MILESTONE: Partial<Record<EventType, MilestoneType>> = {
-	// Bonding
+	// Bonding (friendly gate)
 	laugh: 'first_laugh',
 	gift: 'first_gift',
 	date: 'first_date',
 	i_love_you: 'first_i_love_you',
 	sleepover: 'first_sleepover',
 	shared_meal: 'first_shared_meal',
+	shared_activity: 'first_shared_activity',
+	compliment: 'first_compliment',
+	tease: 'first_tease',
+	helped: 'first_helped',
+	common_interest: 'first_common_interest',
+	outing: 'first_outing',
 	// Physical intimacy
 	intimate_touch: 'first_touch',
 	intimate_kiss: 'first_kiss',
@@ -412,10 +418,18 @@ const EVENT_TYPE_TO_MILESTONE: Partial<Record<EventType, MilestoneType>> = {
 	intimate_manual: 'first_manual',
 	intimate_penetrative: 'first_penetrative',
 	intimate_climax: 'first_climax',
-	// Emotional
+	// Emotional (close gate mappings)
+	emotional: 'emotional_intimacy',
 	confession: 'confession',
 	secret_shared: 'secret_shared',
 	secret_revealed: 'secret_revealed',
+	supportive: 'first_support',
+	comfort: 'first_comfort',
+	forgiveness: 'reconciliation',
+	defended: 'defended',
+	crisis_together: 'crisis_together',
+	vulnerability: 'first_vulnerability',
+	entrusted: 'trusted_with_task',
 	// Commitment
 	promise: 'promise_made',
 	betrayal: 'betrayal',

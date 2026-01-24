@@ -31,10 +31,7 @@ import {
 import { EventList } from './components/EventList';
 import { NarrativeModal, type DeletedEventInfo } from './components/NarrativeModal';
 import { getNarrativeState, saveNarrativeState } from '../state/narrativeState';
-import {
-	clearAllMilestonesForMessage,
-	getRelationshipsAtMessage,
-} from '../state/relationships';
+import { clearAllMilestonesForMessage, getRelationshipsAtMessage } from '../state/relationships';
 
 // Track React roots so we can unmount/update them
 const roots = new Map<number, ReactDOM.Root>();
@@ -262,7 +259,8 @@ function StateDisplay({
 						<div className="bt-chapter-ended-header">
 							<i className="fa-solid fa-book"></i>
 							<span className="bt-chapter-ended-title">
-								Chapter {state.chapterEnded.index + 1}:{' '}
+								Chapter{' '}
+								{state.chapterEnded.index + 1}:{' '}
 								{state.chapterEnded.title}
 							</span>
 							<span className="bt-chapter-ended-badge">
@@ -271,10 +269,10 @@ function StateDisplay({
 									'Location changed'}
 								{state.chapterEnded.reason ===
 									'time_jump' && 'Time skip'}
-								{state.chapterEnded.reason === 'both' &&
-									'Location + Time'}
-								{state.chapterEnded.reason === 'manual' &&
-									'Manual'}
+								{state.chapterEnded.reason ===
+									'both' && 'Location + Time'}
+								{state.chapterEnded.reason ===
+									'manual' && 'Manual'}
 							</span>
 						</div>
 						<div className="bt-chapter-ended-summary">
@@ -282,8 +280,8 @@ function StateDisplay({
 						</div>
 						<div className="bt-chapter-ended-stats">
 							<span>
-								{state.chapterEnded.eventCount} events
-								archived
+								{state.chapterEnded.eventCount}{' '}
+								events archived
 							</span>
 						</div>
 					</div>

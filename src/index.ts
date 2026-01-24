@@ -12,6 +12,7 @@ import {
 	renderAllStates,
 	doExtractState,
 	isManualExtractionInProgress,
+	unmountAllRoots,
 } from './ui/stateDisplay';
 import { settingsManager, getSettings } from './settings';
 import { updateInjectionFromChat } from './injectors/injectState';
@@ -27,7 +28,6 @@ import {
 } from './state/narrativeState';
 import { st_echo } from 'sillytavern-utils-lib/config';
 
- 
 function log(..._args: unknown[]) {
 	// Logging disabled for production
 }
@@ -95,13 +95,19 @@ async function showLegacyDataPopup(context: STContext): Promise<void> {
 			log('User chose to re-extract all messages');
 			st_echo?.('info', '🔥 Starting full re-extraction...');
 
+			// Unmount all roots first to prevent stale UI
+			unmountAllRoots();
+
 			const state = initializeNarrativeState();
 			setNarrativeState(state);
 			clearAllPerMessageState(context);
 			await context.saveChat();
 
 			const { extracted, failed } = await runExtractAll();
-			st_echo?.('success', `🔥 Re-extraction complete: ${extracted} extracted, ${failed} failed`);
+			st_echo?.(
+				'success',
+				`🔥 Re-extraction complete: ${extracted} extracted, ${failed} failed`,
+			);
 			resolve();
 		};
 
@@ -109,6 +115,9 @@ async function showLegacyDataPopup(context: STContext): Promise<void> {
 			cleanup();
 			log('User chose to re-extract recent message only');
 			st_echo?.('info', '🔥 Re-extracting recent state...');
+
+			// Unmount all roots first to prevent stale UI
+			unmountAllRoots();
 
 			const state = initializeNarrativeState();
 			setNarrativeState(state);
@@ -130,6 +139,9 @@ async function showLegacyDataPopup(context: STContext): Promise<void> {
 			cleanup();
 			log('User chose to initialize empty state');
 
+			// Unmount all roots first to prevent stale UI
+			unmountAllRoots();
+
 			const state = initializeNarrativeState();
 			setNarrativeState(state);
 			// Don't clear per-message state - just let it be ignored
@@ -147,9 +159,18 @@ async function showLegacyDataPopup(context: STContext): Promise<void> {
 
 		// Add event listeners after a tick to ensure DOM is ready
 		setTimeout(() => {
-			document.getElementById('bt-migrate-all')?.addEventListener('click', handleMigrateAll);
-			document.getElementById('bt-migrate-recent')?.addEventListener('click', handleMigrateRecent);
-			document.getElementById('bt-migrate-empty')?.addEventListener('click', handleMigrateEmpty);
+			document.getElementById('bt-migrate-all')?.addEventListener(
+				'click',
+				handleMigrateAll,
+			);
+			document.getElementById('bt-migrate-recent')?.addEventListener(
+				'click',
+				handleMigrateRecent,
+			);
+			document.getElementById('bt-migrate-empty')?.addEventListener(
+				'click',
+				handleMigrateEmpty,
+			);
 		}, 0);
 	});
 }

@@ -3297,6 +3297,15 @@ SOCIAL:
 - social: Meeting new people, group dynamics
 - achievement: Accomplishing a goal, success
 
+SUPPORT & PROTECTION:
+- helped: Helped with something significant (assisted with a task, solved a problem for them)
+- common_interest: Discovered a shared interest or hobby (realized they both love the same thing)
+- outing: Went somewhere together casually (not a romantic date, just hanging out)
+- defended: Defended or stood up for them (protected them verbally or physically)
+- crisis_together: Went through danger or hardship together (survived a threat, faced adversity)
+- vulnerability: Showed weakness or vulnerability (admitted fear, showed insecurity, let guard down)
+- entrusted: Entrusted with something important (asked to watch over something precious, given responsibility)
+
 EXAMPLES of multi-select:
 - A kiss during a love confession = ["confession", "intimate_kiss", "emotional"]
 - Revealing a secret while being held = ["secret_shared", "intimate_embrace", "emotional"]
@@ -3347,6 +3356,20 @@ Examples by type:
 - promise: "vowed to protect Elena no matter what"
 - betrayal: "sold the information to their enemies"
 - lied: "told Marcus she was a teacher when she's actually a spy"
+- helped: "fixed her broken laptop and recovered the files"
+- helped: "carried her bags all the way home"
+- common_interest: "discovered they both love vintage cars"
+- common_interest: "realized they share a passion for astronomy"
+- outing: "walked through the park together on a lazy afternoon"
+- outing: "explored the old bookshop district together"
+- defended: "stood up for him when others mocked his idea"
+- defended: "stepped between her and the aggressive stranger"
+- crisis_together: "survived the storm trapped in the cabin"
+- crisis_together: "escaped the collapsing building together"
+- vulnerability: "admitted she was terrified of failing"
+- vulnerability: "broke down and showed his insecurities"
+- entrusted: "asked her to watch over his grandmother's ring"
+- entrusted: "trusted him with the key to her apartment"
 
 CRITICAL - SECRET_SHARED vs LIED:
 - secret_shared: Character shares a TRUE secret about themselves (real past, real identity, real feelings)

@@ -126,7 +126,6 @@ function migrateNarrativeState(state: NarrativeState): boolean {
 
 	// Version 1 -> 2: Add versions array to relationships with initial version from current state
 	if (!state.version || state.version < 2) {
-
 		for (const rel of state.relationships) {
 			if (!rel.versions) {
 				// Create initial version from current relationship state

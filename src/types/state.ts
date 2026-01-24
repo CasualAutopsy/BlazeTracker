@@ -228,7 +228,16 @@ export type EventType =
 
 	// Social & Achievement
 	| 'social' // Meeting people, social dynamics
-	| 'achievement'; // Accomplishment, success
+	| 'achievement' // Accomplishment, success
+
+	// Support & Protection (friendly/close gate milestones)
+	| 'helped' // Helped with something significant
+	| 'common_interest' // Discovered shared interest
+	| 'outing' // Went somewhere together casually
+	| 'defended' // Defended or stood up for them
+	| 'crisis_together' // Went through danger together
+	| 'vulnerability' // Showed weakness/vulnerability
+	| 'entrusted'; // Entrusted with something important
 
 export const EVENT_TYPES: readonly EventType[] = [
 	'conversation',
@@ -276,6 +285,13 @@ export const EVENT_TYPES: readonly EventType[] = [
 	'childbirth',
 	'social',
 	'achievement',
+	'helped',
+	'common_interest',
+	'outing',
+	'defended',
+	'crisis_together',
+	'vulnerability',
+	'entrusted',
 ];
 
 /**
@@ -314,6 +330,15 @@ export const EVENT_TYPE_GROUPS = {
 	commitment: ['decision', 'promise', 'betrayal', 'lied'],
 	life_events: ['exclusivity', 'marriage', 'pregnancy', 'childbirth'],
 	social: ['social', 'achievement'],
+	support: [
+		'helped',
+		'common_interest',
+		'outing',
+		'defended',
+		'crisis_together',
+		'vulnerability',
+		'entrusted',
+	],
 } as const;
 
 /**
@@ -389,13 +414,19 @@ export type MilestoneType =
 	| 'confession' // Confessing feelings
 	| 'emotional_intimacy' // Deep emotional connection/vulnerability
 
-	// Bonding milestones
+	// Bonding milestones (friendly gate)
 	| 'first_laugh' // First shared genuine laugh
 	| 'first_gift' // First gift exchanged
 	| 'first_date' // First date or romantic outing
 	| 'first_i_love_you' // First declaration of love
 	| 'first_sleepover' // First time sleeping over together (non-sexual)
 	| 'first_shared_meal' // First meal shared together
+	| 'first_shared_activity' // First activity done together
+	| 'first_compliment' // First sincere compliment
+	| 'first_tease' // First playful teasing
+	| 'first_helped' // First time helping
+	| 'first_common_interest' // First shared interest discovered
+	| 'first_outing' // First casual outing together
 
 	// Physical intimacy milestones (granular)
 	| 'first_touch' // First meaningful physical contact (hand-holding, etc.)
@@ -416,12 +447,18 @@ export type MilestoneType =
 	| 'pregnancy' // Pregnancy discovered
 	| 'had_child' // Child was born
 
-	// Trust & commitment
+	// Trust & commitment (close gate)
 	| 'promise_made'
 	| 'promise_broken'
 	| 'betrayal'
 	| 'reconciliation'
 	| 'sacrifice'
+	| 'first_support' // First emotional support
+	| 'first_comfort' // First time comforting
+	| 'defended' // Defended them
+	| 'crisis_together' // Faced danger together
+	| 'first_vulnerability' // First vulnerability shown
+	| 'trusted_with_task' // Entrusted with task
 
 	// Secrets
 	| 'secret_shared'
@@ -639,13 +676,19 @@ export const MILESTONE_TYPES: readonly MilestoneType[] = [
 	// Emotional
 	'confession',
 	'emotional_intimacy',
-	// Bonding
+	// Bonding (friendly gate)
 	'first_laugh',
 	'first_gift',
 	'first_date',
 	'first_i_love_you',
 	'first_sleepover',
 	'first_shared_meal',
+	'first_shared_activity',
+	'first_compliment',
+	'first_tease',
+	'first_helped',
+	'first_common_interest',
+	'first_outing',
 	// Physical intimacy (granular)
 	'first_touch',
 	'first_kiss',
@@ -662,12 +705,18 @@ export const MILESTONE_TYPES: readonly MilestoneType[] = [
 	'marriage',
 	'pregnancy',
 	'had_child',
-	// Trust & commitment
+	// Trust & commitment (close gate)
 	'promise_made',
 	'promise_broken',
 	'betrayal',
 	'reconciliation',
 	'sacrifice',
+	'first_support',
+	'first_comfort',
+	'defended',
+	'crisis_together',
+	'first_vulnerability',
+	'trusted_with_task',
 	// Secrets
 	'secret_shared',
 	'secret_revealed',

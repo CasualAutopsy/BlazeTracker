@@ -25,11 +25,15 @@ import {
 } from '../state/narrativeState';
 import { EXTENSION_KEY } from '../constants';
 import { extractChapterBoundary } from '../extractors/extractChapter';
-import { getMostRecentMessageId, getStateForMessage, countExtractedMessages } from './helpers';
+import {
+	getMostRecentMessageId,
+	getStateForMessage,
+	countExtractedMessages,
+	getLastExtractedMessageId,
+} from './helpers';
 
 // Slash command types are retrieved from SillyTavern context at registration time
 
- 
 function log(..._args: unknown[]) {
 	// Logging disabled for production
 }
@@ -352,6 +356,79 @@ export async function runExtractAll(): Promise<{ extracted: number; failed: numb
 }
 
 // ============================================
+// Command: /bt-catchup
+// ============================================
+
+async function catchupCommand(_args: Record<string, string>, _value: string): Promise<string> {
+	const context = SillyTavern.getContext() as STContext;
+
+	const totalMessages = context.chat.length;
+
+	if (totalMessages <= 1) {
+		return 'Error: No messages to extract (chat is empty or only has system message)';
+	}
+
+	// Find the last extracted message
+	const lastExtractedId = getLastExtractedMessageId(context);
+
+	// Determine starting point
+	const startId = lastExtractedId === -1 ? 1 : lastExtractedId + 1;
+
+	// Check if there's anything to extract
+	if (startId >= totalMessages) {
+		return 'Already caught up! All messages have been extracted.';
+	}
+
+	const messagesToExtract = totalMessages - startId;
+
+	log('Slash command: catching up from message', startId);
+
+	let extracted = 0;
+	let failed = 0;
+
+	// Set batch flag to prevent GENERATION_ENDED handler from interfering
+	setBatchExtractionInProgress(true);
+
+	try {
+		for (let i = startId; i < totalMessages; i++) {
+			try {
+				// Show progress via toastr if available
+				window.toastr?.info(
+					`Extracting message ${i - startId + 1}/${messagesToExtract}...`,
+					EXTENSION_NAME,
+					{ timeOut: 1000 },
+				);
+
+				const result = await doExtractState(i);
+
+				if (result) {
+					extracted++;
+				} else {
+					failed++;
+				}
+			} catch (e: any) {
+				log(`Failed to extract message ${i}:`, e);
+				failed++;
+			}
+		}
+	} finally {
+		// Always clear the batch flag when done
+		setBatchExtractionInProgress(false);
+	}
+
+	// Final update
+	renderAllStates();
+	updateInjectionFromChat();
+
+	const results: string[] = [];
+	if (extracted > 0) results.push(`${extracted} extracted`);
+	if (failed > 0) results.push(`${failed} failed`);
+
+	const startInfo = lastExtractedId === -1 ? 'from start' : `from message ${startId}`;
+	return `Catchup complete (${startInfo}): ${results.join(', ')}`;
+}
+
+// ============================================
 // Command: /bt-status
 // ============================================
 
@@ -367,7 +444,10 @@ async function statusCommand(_args: Record<string, string>, _value: string): Pro
 
 	if (narrativeState) {
 		rows.push({ label: 'Chapters', value: String(narrativeState.chapters.length) });
-		rows.push({ label: 'Relationships', value: String(narrativeState.relationships.length) });
+		rows.push({
+			label: 'Relationships',
+			value: String(narrativeState.relationships.length),
+		});
 	} else {
 		rows.push({ label: 'Narrative State', value: 'Not initialized' });
 	}
@@ -377,7 +457,10 @@ async function statusCommand(_args: Record<string, string>, _value: string): Pro
 	if (lastMessageId > 0) {
 		const state = getStateForMessage(context, lastMessageId);
 		if (state?.currentEvents) {
-			rows.push({ label: 'Current Chapter Events', value: String(state.currentEvents.length) });
+			rows.push({
+				label: 'Current Chapter Events',
+				value: String(state.currentEvents.length),
+			});
 		}
 	}
 
@@ -515,6 +598,30 @@ export function registerSlashCommands(): void {
 			}),
 		);
 
+		// /bt-extract-remaining - Continue extraction from last extracted message
+		SlashCommandParser.addCommandObject(
+			SlashCommand.fromProps({
+				name: 'bt-extract-remaining',
+				callback: catchupCommand,
+				helpString: `
+				<div>
+					Continue extracting from where you left off.
+					<br><br>
+					Finds the last message with extracted state and extracts all messages after it.
+					Unlike /bt-extract-all, this preserves existing state and doesn't reset anything.
+					<br><br>
+					<strong>Usage:</strong>
+					<ul>
+						<li><code>/bt-extract-remaining</code> - Extract all unextracted messages</li>
+					</ul>
+					<br>
+					<em>Useful after importing a chat or if extraction was interrupted.</em>
+				</div>
+			`,
+				returns: ARGUMENT_TYPE.STRING,
+			}),
+		);
+
 		// /bt-status - Show BlazeTracker status
 		SlashCommandParser.addCommandObject(
 			SlashCommand.fromProps({
@@ -538,7 +645,7 @@ export function registerSlashCommands(): void {
 		);
 
 		log(
-			'Slash commands registered: /bt-extract, /bt-chapter, /bt-extract-all, /bt-status',
+			'Slash commands registered: /bt-extract, /bt-chapter, /bt-extract-all, /bt-extract-remaining, /bt-status',
 		);
 	} catch (e) {
 		console.error(`[${EXTENSION_NAME}] Failed to register slash commands:`, e);

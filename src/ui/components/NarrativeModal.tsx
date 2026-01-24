@@ -2,12 +2,12 @@
 // Narrative Modal Component
 // ============================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { NarrativeState, TimestampedEvent, Chapter, Relationship } from '../../types/state';
 import { ChapterHistory } from './ChapterHistory';
 import { TensionGraph } from './TensionGraph';
-import { EventList } from './EventList';
+import { EventList, type EventListHandle } from './EventList';
 import { RelationshipsTab } from '../tabs/RelationshipsTab';
 
 // ============================================
@@ -51,6 +51,9 @@ export function NarrativeModal({
 	const [editMode, setEditMode] = useState(false);
 	const [saving, setSaving] = useState(false);
 
+	// Ref to access EventList's pending edit state
+	const eventListRef = useRef<EventListHandle>(null);
+
 	// Working copies for edit mode
 	const [editChapters, setEditChapters] = useState<Chapter[]>([]);
 	const [editRelationships, setEditRelationships] = useState<Relationship[]>([]);
@@ -79,6 +82,15 @@ export function NarrativeModal({
 	const handleSave = useCallback(async () => {
 		if (!onSave) return;
 
+		// Get any pending event edits and apply them directly
+		// (we can't rely on setState being synchronous)
+		let finalCurrentEvents = editCurrentEvents;
+		const pendingEdit = eventListRef.current?.getPendingEdit();
+		if (pendingEdit) {
+			finalCurrentEvents = [...editCurrentEvents];
+			finalCurrentEvents[pendingEdit.index] = pendingEdit.event;
+		}
+
 		setSaving(true);
 		try {
 			const updatedState: NarrativeState = {
@@ -86,7 +98,7 @@ export function NarrativeModal({
 				chapters: editChapters,
 				relationships: editRelationships,
 			};
-			await onSave(updatedState, deletedEvents, editCurrentEvents);
+			await onSave(updatedState, deletedEvents, finalCurrentEvents);
 			setEditMode(false);
 		} finally {
 			setSaving(false);
@@ -285,6 +297,7 @@ export function NarrativeModal({
 						<div className="bt-events-tab-content">
 							{displayCurrentEvents.length > 0 ? (
 								<EventList
+									ref={eventListRef}
 									events={
 										displayCurrentEvents
 									}

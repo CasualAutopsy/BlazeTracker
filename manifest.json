@@ -6,6 +6,6 @@
 	"js": "dist/index.js",
 	"auto_update": true,
 	"author": "Lunar Blaze",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"homePage": "https://github.com/lunarblazepony/BlazeTracker"
 }

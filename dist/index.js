@@ -38924,6 +38924,7 @@ Sortable.mount(Remove, Revert);
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   countExtractedMessages: () => (/* binding */ countExtractedMessages),
+/* harmony export */   getLastExtractedMessageId: () => (/* binding */ getLastExtractedMessageId),
 /* harmony export */   getMostRecentMessageId: () => (/* binding */ getMostRecentMessageId),
 /* harmony export */   getStateForMessage: () => (/* binding */ getStateForMessage)
 /* harmony export */ });
@@ -38961,6 +38962,19 @@ function countExtractedMessages(context) {
         }
     }
     return { extracted, total };
+}
+/**
+ * Find the ID of the last message that has extracted state.
+ * Returns -1 if no messages have state.
+ */
+function getLastExtractedMessageId(context) {
+    for (let i = context.chat.length - 1; i >= 0; i--) {
+        const message = context.chat[i];
+        if ((0,_utils_messageState__WEBPACK_IMPORTED_MODULE_0__.getMessageState)(message)) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 
@@ -39261,6 +39275,63 @@ async function runExtractAll() {
     return { extracted, failed };
 }
 // ============================================
+// Command: /bt-catchup
+// ============================================
+async function catchupCommand(_args, _value) {
+    const context = SillyTavern.getContext();
+    const totalMessages = context.chat.length;
+    if (totalMessages <= 1) {
+        return 'Error: No messages to extract (chat is empty or only has system message)';
+    }
+    // Find the last extracted message
+    const lastExtractedId = (0,_helpers__WEBPACK_IMPORTED_MODULE_7__.getLastExtractedMessageId)(context);
+    // Determine starting point
+    const startId = lastExtractedId === -1 ? 1 : lastExtractedId + 1;
+    // Check if there's anything to extract
+    if (startId >= totalMessages) {
+        return 'Already caught up! All messages have been extracted.';
+    }
+    const messagesToExtract = totalMessages - startId;
+    log('Slash command: catching up from message', startId);
+    let extracted = 0;
+    let failed = 0;
+    // Set batch flag to prevent GENERATION_ENDED handler from interfering
+    (0,_extractors_extractState__WEBPACK_IMPORTED_MODULE_2__.setBatchExtractionInProgress)(true);
+    try {
+        for (let i = startId; i < totalMessages; i++) {
+            try {
+                // Show progress via toastr if available
+                window.toastr?.info(`Extracting message ${i - startId + 1}/${messagesToExtract}...`, _constants__WEBPACK_IMPORTED_MODULE_0__.EXTENSION_NAME, { timeOut: 1000 });
+                const result = await (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_1__.doExtractState)(i);
+                if (result) {
+                    extracted++;
+                }
+                else {
+                    failed++;
+                }
+            }
+            catch (e) {
+                log(`Failed to extract message ${i}:`, e);
+                failed++;
+            }
+        }
+    }
+    finally {
+        // Always clear the batch flag when done
+        (0,_extractors_extractState__WEBPACK_IMPORTED_MODULE_2__.setBatchExtractionInProgress)(false);
+    }
+    // Final update
+    (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_1__.renderAllStates)();
+    (0,_injectors_injectState__WEBPACK_IMPORTED_MODULE_4__.updateInjectionFromChat)();
+    const results = [];
+    if (extracted > 0)
+        results.push(`${extracted} extracted`);
+    if (failed > 0)
+        results.push(`${failed} failed`);
+    const startInfo = lastExtractedId === -1 ? 'from start' : `from message ${startId}`;
+    return `Catchup complete (${startInfo}): ${results.join(', ')}`;
+}
+// ============================================
 // Command: /bt-status
 // ============================================
 async function statusCommand(_args, _value) {
@@ -39273,7 +39344,10 @@ async function statusCommand(_args, _value) {
     ];
     if (narrativeState) {
         rows.push({ label: 'Chapters', value: String(narrativeState.chapters.length) });
-        rows.push({ label: 'Relationships', value: String(narrativeState.relationships.length) });
+        rows.push({
+            label: 'Relationships',
+            value: String(narrativeState.relationships.length),
+        });
     }
     else {
         rows.push({ label: 'Narrative State', value: 'Not initialized' });
@@ -39283,7 +39357,10 @@ async function statusCommand(_args, _value) {
     if (lastMessageId > 0) {
         const state = (0,_helpers__WEBPACK_IMPORTED_MODULE_7__.getStateForMessage)(context, lastMessageId);
         if (state?.currentEvents) {
-            rows.push({ label: 'Current Chapter Events', value: String(state.currentEvents.length) });
+            rows.push({
+                label: 'Current Chapter Events',
+                value: String(state.currentEvents.length),
+            });
         }
     }
     // Create popup content
@@ -39399,6 +39476,27 @@ function registerSlashCommands() {
 			`,
             returns: ARGUMENT_TYPE.STRING,
         }));
+        // /bt-extract-remaining - Continue extraction from last extracted message
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'bt-extract-remaining',
+            callback: catchupCommand,
+            helpString: `
+				<div>
+					Continue extracting from where you left off.
+					<br><br>
+					Finds the last message with extracted state and extracts all messages after it.
+					Unlike /bt-extract-all, this preserves existing state and doesn't reset anything.
+					<br><br>
+					<strong>Usage:</strong>
+					<ul>
+						<li><code>/bt-extract-remaining</code> - Extract all unextracted messages</li>
+					</ul>
+					<br>
+					<em>Useful after importing a chat or if extraction was interrupted.</em>
+				</div>
+			`,
+            returns: ARGUMENT_TYPE.STRING,
+        }));
         // /bt-status - Show BlazeTracker status
         SlashCommandParser.addCommandObject(SlashCommand.fromProps({
             name: 'bt-status',
@@ -39418,7 +39516,7 @@ function registerSlashCommands() {
 			`,
             returns: ARGUMENT_TYPE.STRING,
         }));
-        log('Slash commands registered: /bt-extract, /bt-chapter, /bt-extract-all, /bt-status');
+        log('Slash commands registered: /bt-extract, /bt-chapter, /bt-extract-all, /bt-extract-remaining, /bt-status');
     }
     catch (e) {
         console.error(`[${_constants__WEBPACK_IMPORTED_MODULE_0__.EXTENSION_NAME}] Failed to register slash commands:`, e);
@@ -40365,13 +40463,19 @@ function validateEventTypes(data) {
  * Map event types to potential milestone types.
  */
 const EVENT_TYPE_TO_MILESTONE = {
-    // Bonding
+    // Bonding (friendly gate)
     laugh: 'first_laugh',
     gift: 'first_gift',
     date: 'first_date',
     i_love_you: 'first_i_love_you',
     sleepover: 'first_sleepover',
     shared_meal: 'first_shared_meal',
+    shared_activity: 'first_shared_activity',
+    compliment: 'first_compliment',
+    tease: 'first_tease',
+    helped: 'first_helped',
+    common_interest: 'first_common_interest',
+    outing: 'first_outing',
     // Physical intimacy
     intimate_touch: 'first_touch',
     intimate_kiss: 'first_kiss',
@@ -40383,10 +40487,18 @@ const EVENT_TYPE_TO_MILESTONE = {
     intimate_manual: 'first_manual',
     intimate_penetrative: 'first_penetrative',
     intimate_climax: 'first_climax',
-    // Emotional
+    // Emotional (close gate mappings)
+    emotional: 'emotional_intimacy',
     confession: 'confession',
     secret_shared: 'secret_shared',
     secret_revealed: 'secret_revealed',
+    supportive: 'first_support',
+    comfort: 'first_comfort',
+    forgiveness: 'reconciliation',
+    defended: 'defended',
+    crisis_together: 'crisis_together',
+    vulnerability: 'first_vulnerability',
+    entrusted: 'trusted_with_task',
     // Commitment
     promise: 'promise_made',
     betrayal: 'betrayal',
@@ -41087,8 +41199,14 @@ async function extractInitialRelationship(params) {
         });
         const relationship = buildRelationship(pair, parsed, undefined, params.messageId);
         // Automatically add first_meeting milestone for new relationships
-        if (relationship && params.messageId !== undefined && params.currentTime && params.currentLocation) {
-            const locationStr = [params.currentLocation.place, params.currentLocation.area]
+        if (relationship &&
+            params.messageId !== undefined &&
+            params.currentTime &&
+            params.currentLocation) {
+            const locationStr = [
+                params.currentLocation.place,
+                params.currentLocation.area,
+            ]
                 .filter(Boolean)
                 .join(', ');
             const timeOfDay = getTimeOfDay(params.currentTime.hour);
@@ -41154,7 +41272,7 @@ async function refreshRelationship(params) {
  * Apply a relationship signal from event extraction to update the relationship.
  * This is a lighter-weight update that doesn't require an LLM call.
  */
-function updateRelationshipFromSignal(relationship, signal) {
+function updateRelationshipFromSignal(relationship, signal, messageId) {
     // Create a copy to modify
     const updated = { ...relationship };
     updated.aToB = { ...updated.aToB };
@@ -41190,11 +41308,52 @@ function updateRelationshipFromSignal(relationship, signal) {
         }
     }
     // Add milestones if provided and not duplicates
+    let milestonesAdded = false;
     if (signal.milestones && signal.milestones.length > 0) {
         for (const milestone of signal.milestones) {
             const hasMilestone = updated.milestones.some(m => m.type === milestone.type);
             if (!hasMilestone) {
                 updated.milestones = [...updated.milestones, milestone];
+                milestonesAdded = true;
+            }
+        }
+    }
+    // If milestones were added, check if we should upgrade the status
+    // Milestones enable progression - if we have close milestones, we can be close
+    if (milestonesAdded) {
+        const maxStatus = inferMaximumStatus(updated.milestones);
+        const maxRank = getStatusRank(maxStatus);
+        const currentRank = getStatusRank(updated.status);
+        // Only upgrade positive statuses, and respect one-step-at-a-time
+        if (currentRank >= 0 && currentRank < maxRank) {
+            // Check cooldown - need enough messages since last status change
+            let canUpgrade = true;
+            if (messageId !== undefined && updated.versions.length > 0) {
+                const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+                const minMessages = settings.relationshipUpgradeCooldown;
+                const lastVersion = updated.versions[updated.versions.length - 1];
+                const messagesSinceLastChange = messageId - lastVersion.messageId;
+                if (messagesSinceLastChange < minMessages) {
+                    canUpgrade = false;
+                }
+            }
+            if (canUpgrade) {
+                // Upgrade one step toward the max allowed by milestones
+                const newRank = currentRank + 1;
+                updated.status = getStatusFromRank(newRank);
+                // Record the version change
+                if (messageId !== undefined) {
+                    updated.versions = [
+                        ...updated.versions,
+                        {
+                            messageId,
+                            status: updated.status,
+                            aToB: updated.aToB,
+                            bToA: updated.bToA,
+                            milestones: updated.milestones,
+                        },
+                    ];
+                }
             }
         }
     }
@@ -41258,35 +41417,80 @@ function inferMinimumStatus(feelings) {
     return null;
 }
 /**
- * Milestones that indicate a romantic relationship has begun.
- * Without at least one of these, "intimate" status is not appropriate.
+ * Milestones that gate progression from acquaintances → friendly.
+ * Requires at least one of these to become friendly.
  */
-const ROMANTIC_GATE_MILESTONES = new Set([
+const FRIENDLY_GATE_MILESTONES = new Set([
+    'first_laugh',
+    'first_gift',
+    'first_shared_meal',
+    'first_shared_activity',
+    'first_alliance',
+    'first_compliment',
+    'first_tease',
+    'first_helped',
+    'first_common_interest',
+    'first_outing',
+]);
+/**
+ * Milestones that gate progression from friendly → close.
+ * Requires at least one of these to become close.
+ */
+const CLOSE_GATE_MILESTONES = new Set([
+    'emotional_intimacy',
+    'secret_shared',
+    'confession',
+    'first_sleepover',
+    'sacrifice',
+    'reconciliation',
+    'first_support',
+    'first_comfort',
+    'defended',
+    'crisis_together',
+    'first_vulnerability',
+    'trusted_with_task',
+]);
+/**
+ * Milestones that gate progression from close → intimate.
+ * Requires at least one of these to become intimate.
+ */
+const INTIMATE_GATE_MILESTONES = new Set([
     'first_kiss',
     'first_date',
     'first_i_love_you',
-    'promised_exclusivity',
-    'marriage',
-    // Sexual milestones
+    'first_touch',
+    'first_embrace',
+    'first_heated',
     'first_foreplay',
     'first_oral',
     'first_manual',
     'first_penetrative',
     'first_climax',
+    'promised_exclusivity',
+    'marriage',
 ]);
 /**
  * Infer maximum relationship status based on milestones.
  * This caps status to prevent models from over-estimating relationship depth.
+ * Checks from highest to lowest tier to find the maximum allowed status.
  */
 function inferMaximumStatus(milestones) {
-    const milestoneTypes = new Set(milestones.map(m => m.type));
-    // Check for any romantic gate milestone
-    const hasRomanticMilestone = [...ROMANTIC_GATE_MILESTONES].some(m => milestoneTypes.has(m));
-    // If no romantic milestones at all, cap at "close" (deep friendship, not romantic)
-    if (!hasRomanticMilestone) {
+    const types = new Set(milestones.map(m => m.type));
+    // Check from highest to lowest tier
+    // Intimate requires romantic/physical milestones
+    if ([...INTIMATE_GATE_MILESTONES].some(m => types.has(m))) {
+        return 'intimate';
+    }
+    // Close requires deep trust/emotional milestones
+    if ([...CLOSE_GATE_MILESTONES].some(m => types.has(m))) {
         return 'close';
     }
-    return null; // No cap
+    // Friendly requires bonding milestones
+    if ([...FRIENDLY_GATE_MILESTONES].some(m => types.has(m))) {
+        return 'friendly';
+    }
+    // No qualifying milestones - cap at acquaintances
+    return 'acquaintances';
 }
 /**
  * Get numeric rank for status to compare relative closeness.
@@ -41318,6 +41522,44 @@ function getStatusFromRank(rank) {
         4: 'intimate',
     };
     return rankToStatus[rank] ?? 'acquaintances';
+}
+/**
+ * Enforce gradual relationship progression.
+ * - Positive progression: can only move one step at a time (strangers → acquaintances → friendly → close)
+ * - Negative progression: can move faster (conflicts escalate quickly)
+ * - Cooldown: must wait relationshipUpgradeCooldown messages before upgrading again
+ *
+ * Returns the capped status rank.
+ */
+function enforceGradualProgression(proposedRank, existing, currentMessageId) {
+    if (!existing) {
+        // New relationship - start at acquaintances max (rank 1), unless negative
+        if (proposedRank > 1) {
+            return 1; // acquaintances
+        }
+        return proposedRank;
+    }
+    const currentRank = getStatusRank(existing.status);
+    // If not upgrading (staying same or going down), allow it
+    if (proposedRank <= currentRank) {
+        return proposedRank;
+    }
+    // Upgrading - enforce one step at a time
+    const maxAllowedRank = currentRank + 1;
+    let cappedRank = Math.min(proposedRank, maxAllowedRank);
+    // Check cooldown - need enough messages since last status change
+    const settings = (0,_settings__WEBPACK_IMPORTED_MODULE_0__.getSettings)();
+    const minMessages = settings.relationshipUpgradeCooldown;
+    if (currentMessageId !== undefined && existing.versions.length > 0) {
+        // Find the most recent version (last status change)
+        const lastVersion = existing.versions[existing.versions.length - 1];
+        const messagesSinceLastChange = currentMessageId - lastVersion.messageId;
+        if (messagesSinceLastChange < minMessages) {
+            // Not enough messages have passed - don't allow upgrade
+            cappedRank = currentRank;
+        }
+    }
+    return cappedRank;
 }
 function buildRelationship(pair, data, existing, messageId) {
     if (!(0,_utils_json__WEBPACK_IMPORTED_MODULE_3__.isObject)(data)) {
@@ -41352,15 +41594,21 @@ function buildRelationship(pair, data, existing, messageId) {
         status = getStatusFromRank(currentRank);
     }
     // Apply maximum cap based on milestones (only for positive statuses)
-    // We need the existing relationship's milestones to check this
+    // This prevents relationships from jumping too high without the requisite milestones
     if (existing && currentRank > 0) {
         const maxStatus = inferMaximumStatus(existing.milestones);
-        if (maxStatus) {
-            const maxRank = getStatusRank(maxStatus);
-            if (currentRank > maxRank) {
-                status = maxStatus;
-            }
+        const maxRank = getStatusRank(maxStatus);
+        if (currentRank > maxRank) {
+            currentRank = maxRank;
+            status = maxStatus;
         }
+    }
+    // Enforce gradual progression (one step at a time, with cooldown)
+    // This prevents relationships from jumping from strangers to close in a few messages
+    const gradualRank = enforceGradualProgression(currentRank, existing, messageId);
+    if (gradualRank !== currentRank) {
+        currentRank = gradualRank;
+        status = getStatusFromRank(currentRank);
     }
     // Determine if status changed
     const statusChanged = !existing || existing.status !== status;
@@ -41957,17 +42205,17 @@ async function extractState(context, messageId, previousState, abortSignal, opti
                             if (refreshed) {
                                 // Apply milestones from signal (LLM might not include them)
                                 relationship =
-                                    (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(refreshed, signal);
+                                    (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(refreshed, signal, messageId);
                             }
                             else {
                                 // Fallback to simple update if refresh fails
                                 relationship =
-                                    (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(relationship, signal);
+                                    (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(relationship, signal, messageId);
                             }
                         }
                         else {
                             // Simple update for non-milestone signals
-                            relationship = (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(relationship, signal);
+                            relationship = (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(relationship, signal, messageId);
                         }
                         (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_12__.updateRelationship)(narrativeState, relationship);
                     }
@@ -41988,7 +42236,7 @@ async function extractState(context, messageId, previousState, abortSignal, opti
                         });
                         if (newRelationship) {
                             // Apply the signal to the new relationship
-                            const withSignal = (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(newRelationship, signal);
+                            const withSignal = (0,_extractRelationships__WEBPACK_IMPORTED_MODULE_9__.updateRelationshipFromSignal)(newRelationship, signal, messageId);
                             (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_12__.updateRelationship)(narrativeState, withSignal);
                         }
                     }
@@ -45977,6 +46225,15 @@ SOCIAL:
 - social: Meeting new people, group dynamics
 - achievement: Accomplishing a goal, success
 
+SUPPORT & PROTECTION:
+- helped: Helped with something significant (assisted with a task, solved a problem for them)
+- common_interest: Discovered a shared interest or hobby (realized they both love the same thing)
+- outing: Went somewhere together casually (not a romantic date, just hanging out)
+- defended: Defended or stood up for them (protected them verbally or physically)
+- crisis_together: Went through danger or hardship together (survived a threat, faced adversity)
+- vulnerability: Showed weakness or vulnerability (admitted fear, showed insecurity, let guard down)
+- entrusted: Entrusted with something important (asked to watch over something precious, given responsibility)
+
 EXAMPLES of multi-select:
 - A kiss during a love confession = ["confession", "intimate_kiss", "emotional"]
 - Revealing a secret while being held = ["secret_shared", "intimate_embrace", "emotional"]
@@ -46027,6 +46284,20 @@ Examples by type:
 - promise: "vowed to protect Elena no matter what"
 - betrayal: "sold the information to their enemies"
 - lied: "told Marcus she was a teacher when she's actually a spy"
+- helped: "fixed her broken laptop and recovered the files"
+- helped: "carried her bags all the way home"
+- common_interest: "discovered they both love vintage cars"
+- common_interest: "realized they share a passion for astronomy"
+- outing: "walked through the park together on a lazy afternoon"
+- outing: "explored the old bookshop district together"
+- defended: "stood up for him when others mocked his idea"
+- defended: "stepped between her and the aggressive stranger"
+- crisis_together: "survived the storm trapped in the cabin"
+- crisis_together: "escaped the collapsing building together"
+- vulnerability: "admitted she was terrified of failing"
+- vulnerability: "broke down and showed his insecurities"
+- entrusted: "asked her to watch over his grandmother's ring"
+- entrusted: "trusted him with the key to her apartment"
 
 CRITICAL - SECRET_SHARED vs LIED:
 - secret_shared: Character shares a TRUE secret about themselves (real past, real identity, real feelings)
@@ -47127,6 +47398,7 @@ const defaultSettings = {
     // Relationship settings
     relationshipRefreshInterval: 10,
     includeRelationshipSecrets: true,
+    relationshipUpgradeCooldown: 4,
     // Other defaults
     leapThresholdMinutes: 20,
     temperatureUnit: 'fahrenheit',
@@ -48289,6 +48561,13 @@ const EVENT_TYPES = [
     'childbirth',
     'social',
     'achievement',
+    'helped',
+    'common_interest',
+    'outing',
+    'defended',
+    'crisis_together',
+    'vulnerability',
+    'entrusted',
 ];
 /**
  * Event type groups for UI display.
@@ -48326,6 +48605,15 @@ const EVENT_TYPE_GROUPS = {
     commitment: ['decision', 'promise', 'betrayal', 'lied'],
     life_events: ['exclusivity', 'marriage', 'pregnancy', 'childbirth'],
     social: ['social', 'achievement'],
+    support: [
+        'helped',
+        'common_interest',
+        'outing',
+        'defended',
+        'crisis_together',
+        'vulnerability',
+        'entrusted',
+    ],
 };
 // ============================================
 // Constants
@@ -48367,13 +48655,19 @@ const MILESTONE_TYPES = [
     // Emotional
     'confession',
     'emotional_intimacy',
-    // Bonding
+    // Bonding (friendly gate)
     'first_laugh',
     'first_gift',
     'first_date',
     'first_i_love_you',
     'first_sleepover',
     'first_shared_meal',
+    'first_shared_activity',
+    'first_compliment',
+    'first_tease',
+    'first_helped',
+    'first_common_interest',
+    'first_outing',
     // Physical intimacy (granular)
     'first_touch',
     'first_kiss',
@@ -48390,12 +48684,18 @@ const MILESTONE_TYPES = [
     'marriage',
     'pregnancy',
     'had_child',
-    // Trust & commitment
+    // Trust & commitment (close gate)
     'promise_made',
     'promise_broken',
     'betrayal',
     'reconciliation',
     'sacrifice',
+    'first_support',
+    'first_comfort',
+    'defended',
+    'crisis_together',
+    'first_vulnerability',
+    'trusted_with_task',
     // Secrets
     'secret_shared',
     'secret_revealed',
@@ -48597,7 +48897,7 @@ __webpack_require__.r(__webpack_exports__);
 // ============================================
 // Component
 // ============================================
-function EventEditor({ event, onSave, onCancel }) {
+const EventEditor = (0,react__WEBPACK_IMPORTED_MODULE_1__.forwardRef)(function EventEditor({ event, onSave, onCancel }, ref) {
     const [summary, setSummary] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(event.summary);
     const [eventTypes, setEventTypes] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(event.eventTypes || ['conversation']);
     const [tensionLevel, setTensionLevel] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(event.tensionLevel);
@@ -48611,7 +48911,8 @@ function EventEditor({ event, onSave, onCancel }) {
     // New milestone form state
     const [newMilestoneType, setNewMilestoneType] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('first_meeting');
     const [newMilestoneDesc, setNewMilestoneDesc] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)('');
-    const handleSave = () => {
+    /** Build the current edited event from state */
+    const buildCurrentEvent = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(() => {
         const updatedEvent = {
             ...event,
             summary,
@@ -48631,7 +48932,25 @@ function EventEditor({ event, onSave, onCancel }) {
         else {
             updatedEvent.relationshipSignal = undefined;
         }
-        onSave(updatedEvent);
+        return updatedEvent;
+    }, [
+        event,
+        summary,
+        eventTypes,
+        tensionLevel,
+        tensionType,
+        witnesses,
+        hasPair,
+        pairChar1,
+        pairChar2,
+        milestones,
+    ]);
+    // Expose getCurrentState method via ref
+    (0,react__WEBPACK_IMPORTED_MODULE_1__.useImperativeHandle)(ref, () => ({
+        getCurrentState: buildCurrentEvent,
+    }), [buildCurrentEvent]);
+    const handleSave = () => {
+        onSave(buildCurrentEvent());
     };
     const handleAddMilestone = () => {
         if (newMilestoneType) {
@@ -48666,7 +48985,7 @@ function EventEditor({ event, onSave, onCancel }) {
                                                     .value), placeholder: "Name..." })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-milestones-editor", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("label", { children: "Milestones" }), milestones.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("ul", { className: "bt-milestones-list-edit", children: milestones.map((m, i) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("li", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-milestone-type", children: m.type.replace(/_/g, ' ') }), m.description && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-milestone-desc", children: m.description })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-delete-btn-small", onClick: () => handleRemoveMilestone(i), title: "Remove milestone", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-times" }) })] }, i))) })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-add-milestone", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("select", { value: newMilestoneType, onChange: e => setNewMilestoneType(e.target
                                                     .value), children: _types_state__WEBPACK_IMPORTED_MODULE_2__.MILESTONE_TYPES.map(type => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", { value: type, children: type.replace(/_/g, ' ') }, type))) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", { type: "text", value: newMilestoneDesc, onChange: e => setNewMilestoneDesc(e.target
                                                     .value), placeholder: "Description (optional)..." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-btn bt-btn-small", onClick: handleAddMilestone, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-plus" }) })] })] })] }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-editor-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-btn bt-btn-secondary", onClick: onCancel, children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-btn bt-btn-primary", onClick: handleSave, children: "Save" })] })] }));
-}
+});
 
 
 /***/ },
@@ -48746,8 +49065,9 @@ function EventItem({ event, index: _index, presentCharacters, opacity = 1, editM
                                         color: (0,_icons__WEBPACK_IMPORTED_MODULE_2__.getEventTypeColor)(type),
                                     }, title: type.replace(/_/g, ' ') }, idx))) }), editMode && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-actions", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-edit-btn-small", onClick: onEdit, title: "Edit event", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-pen" }) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { type: "button", className: "bt-delete-btn-small", onClick: onDelete, title: "Delete event", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-trash" }) })] }))] })] }), milestones.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-event-milestones", children: milestones.map((m, idx) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-milestone-item", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-star" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-milestone-type", children: m.type.replace(/_/g, ' ') }), m.description && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-milestone-desc", children: m.description }))] }, idx))) })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-event-summary", children: event.summary }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-footer", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-people", children: [event.witnesses.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-witnesses", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-witnesses-label", children: "Witnesses:" }), event.witnesses.map((w, i) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-witness", children: w }, i)))] })), absentWitnesses.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-absent", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-absent-label", children: "Not present:" }), absentWitnesses.map((w, i) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "bt-absent-witness", children: w }, i)))] }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-tension", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: typeIconClass, style: { color: typeColor }, title: typeTooltip }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: levelIconClass, style: { color: levelColor }, title: levelTooltip })] })] })] }));
 }
-function EventList({ events, presentCharacters, maxEvents, editMode, onUpdate, onDelete, }) {
+const EventList = (0,react__WEBPACK_IMPORTED_MODULE_1__.forwardRef)(function EventList({ events, presentCharacters, maxEvents, editMode, onUpdate, onDelete }, ref) {
     const [editingIndex, setEditingIndex] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(null);
+    const eventEditorRef = (0,react__WEBPACK_IMPORTED_MODULE_1__.useRef)(null);
     // Get the most recent events (from the end of the array)
     const recentEvents = maxEvents ? events.slice(-maxEvents) : events;
     // Reverse to show newest first
@@ -48768,21 +49088,46 @@ function EventList({ events, presentCharacters, maxEvents, editMode, onUpdate, o
             onDelete(getOriginalIndex(displayIndex));
         }
     };
-    const handleSaveEdit = (event) => {
+    const handleSaveEdit = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)((event) => {
         if (onUpdate && editingIndex !== null) {
             onUpdate(editingIndex, event);
             setEditingIndex(null);
         }
-    };
+    }, [onUpdate, editingIndex]);
     const handleCancelEdit = () => {
         setEditingIndex(null);
     };
+    // Get any pending edit without committing
+    const getPendingEdit = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(() => {
+        if (editingIndex !== null && eventEditorRef.current) {
+            return {
+                index: editingIndex,
+                event: eventEditorRef.current.getCurrentState(),
+            };
+        }
+        return null;
+    }, [editingIndex]);
+    // Commit any pending edits by getting the current state from the editor
+    const commitPendingEdits = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(() => {
+        if (editingIndex !== null && eventEditorRef.current && onUpdate) {
+            const currentState = eventEditorRef.current.getCurrentState();
+            onUpdate(editingIndex, currentState);
+            setEditingIndex(null);
+            return true;
+        }
+        return false;
+    }, [editingIndex, onUpdate]);
+    // Expose methods via ref
+    (0,react__WEBPACK_IMPORTED_MODULE_1__.useImperativeHandle)(ref, () => ({
+        getPendingEdit,
+        commitPendingEdits,
+    }), [getPendingEdit, commitPendingEdits]);
     if (displayEvents.length === 0) {
         return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-event-list bt-empty", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("p", { children: "No events recorded yet." }) }));
     }
     // Find the event being edited (if any)
     const eventBeingEdited = editingIndex !== null ? events[editingIndex] : null;
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-list", children: [editingIndex !== null && eventBeingEdited && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-event-editor-container", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_EventEditor__WEBPACK_IMPORTED_MODULE_3__.EventEditor, { event: eventBeingEdited, onSave: handleSaveEdit, onCancel: handleCancelEdit }) })), displayEvents.map((event, displayIndex) => {
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-event-list", children: [editingIndex !== null && eventBeingEdited && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-event-editor-container", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_EventEditor__WEBPACK_IMPORTED_MODULE_3__.EventEditor, { ref: eventEditorRef, event: eventBeingEdited, onSave: handleSaveEdit, onCancel: handleCancelEdit }) })), displayEvents.map((event, displayIndex) => {
                 const originalIndex = getOriginalIndex(displayIndex);
                 // Skip showing the item being edited
                 if (originalIndex === editingIndex) {
@@ -48792,7 +49137,7 @@ function EventList({ events, presentCharacters, maxEvents, editMode, onUpdate, o
                 const opacity = Math.max(0.4, 1 - displayIndex * 0.25);
                 return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(EventItem, { event: event, index: originalIndex, presentCharacters: presentCharacters, opacity: editMode ? 1 : opacity, editMode: editMode, onEdit: () => handleEdit(displayIndex), onDelete: () => handleDelete(displayIndex) }, originalIndex));
             })] }));
-}
+});
 
 
 /***/ },
@@ -48832,6 +49177,8 @@ function NarrativeModal({ narrativeState, currentEvents = [], presentCharacters,
     const [activeTab, setActiveTab] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(initialTab);
     const [editMode, setEditMode] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
     const [saving, setSaving] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
+    // Ref to access EventList's pending edit state
+    const eventListRef = (0,react__WEBPACK_IMPORTED_MODULE_1__.useRef)(null);
     // Working copies for edit mode
     const [editChapters, setEditChapters] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)([]);
     const [editRelationships, setEditRelationships] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)([]);
@@ -48856,6 +49203,14 @@ function NarrativeModal({ narrativeState, currentEvents = [], presentCharacters,
     const handleSave = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(async () => {
         if (!onSave)
             return;
+        // Get any pending event edits and apply them directly
+        // (we can't rely on setState being synchronous)
+        let finalCurrentEvents = editCurrentEvents;
+        const pendingEdit = eventListRef.current?.getPendingEdit();
+        if (pendingEdit) {
+            finalCurrentEvents = [...editCurrentEvents];
+            finalCurrentEvents[pendingEdit.index] = pendingEdit.event;
+        }
         setSaving(true);
         try {
             const updatedState = {
@@ -48863,7 +49218,7 @@ function NarrativeModal({ narrativeState, currentEvents = [], presentCharacters,
                 chapters: editChapters,
                 relationships: editRelationships,
             };
-            await onSave(updatedState, deletedEvents, editCurrentEvents);
+            await onSave(updatedState, deletedEvents, finalCurrentEvents);
             setEditMode(false);
         }
         finally {
@@ -48944,7 +49299,7 @@ function NarrativeModal({ narrativeState, currentEvents = [], presentCharacters,
                 onClose();
         }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-container bt-narrative-modal", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("h2", { children: editMode
                                 ? 'Editing Narrative'
-                                : 'Narrative Overview' }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-header-actions", children: [editMode ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { className: "bt-btn bt-btn-secondary", onClick: cancelEditMode, disabled: saving, children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { className: "bt-btn bt-btn-primary", onClick: handleSave, disabled: saving, children: saving ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-spinner fa-spin" }), "Saving..."] })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-check" }), "Save"] })) })] })) : (onSave && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "bt-btn bt-btn-secondary", onClick: enterEditMode, title: "Enable editing of narrative state", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-pen" }), "Enable Editing"] }))), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { className: "bt-modal-close", onClick: onClose, disabled: editMode, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-xmark" }) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-tabs", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: `bt-tab ${activeTab === 'events' ? 'bt-tab-active' : ''}`, onClick: () => setActiveTab('events'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-bolt" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Events (", displayCurrentEvents.length, ")"] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: `bt-tab ${activeTab === 'chapters' ? 'bt-tab-active' : ''}`, onClick: () => setActiveTab('chapters'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-book" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Chapters (", displayChapters.length, ")"] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: `bt-tab ${activeTab === 'relationships' ? 'bt-tab-active' : ''}`, onClick: () => setActiveTab('relationships'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-heart" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Relationships (", displayRelationships.length, ")"] })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-content", children: [activeTab === 'events' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-events-tab-content", children: displayCurrentEvents.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_EventList__WEBPACK_IMPORTED_MODULE_5__.EventList, { events: displayCurrentEvents, presentCharacters: presentCharacters, editMode: editMode, onUpdate: handleCurrentEventUpdate, onDelete: handleCurrentEventDelete })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("p", { className: "bt-empty-message", children: "No events in the current chapter yet." })) })), activeTab === 'chapters' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-chapters-tab-content", children: [allEvents.length > 0 && !editMode && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-tension-graph-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("h3", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-chart-line" }), "Tension Over Time"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_TensionGraph__WEBPACK_IMPORTED_MODULE_4__.TensionGraph, { events: allEvents })] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_ChapterHistory__WEBPACK_IMPORTED_MODULE_3__.ChapterHistory, { chapters: displayChapters, editMode: editMode, onUpdate: handleChaptersUpdate })] })), activeTab === 'relationships' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_tabs_RelationshipsTab__WEBPACK_IMPORTED_MODULE_6__.RelationshipsTab, { relationships: displayRelationships, presentCharacters: presentCharacters, editMode: editMode, onUpdate: setEditRelationships }))] })] }) }), document.body);
+                                : 'Narrative Overview' }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-header-actions", children: [editMode ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { className: "bt-btn bt-btn-secondary", onClick: cancelEditMode, disabled: saving, children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { className: "bt-btn bt-btn-primary", onClick: handleSave, disabled: saving, children: saving ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-spinner fa-spin" }), "Saving..."] })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-check" }), "Save"] })) })] })) : (onSave && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "bt-btn bt-btn-secondary", onClick: enterEditMode, title: "Enable editing of narrative state", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-pen" }), "Enable Editing"] }))), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", { className: "bt-modal-close", onClick: onClose, disabled: editMode, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-xmark" }) })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-tabs", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: `bt-tab ${activeTab === 'events' ? 'bt-tab-active' : ''}`, onClick: () => setActiveTab('events'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-bolt" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Events (", displayCurrentEvents.length, ")"] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: `bt-tab ${activeTab === 'chapters' ? 'bt-tab-active' : ''}`, onClick: () => setActiveTab('chapters'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-book" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Chapters (", displayChapters.length, ")"] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: `bt-tab ${activeTab === 'relationships' ? 'bt-tab-active' : ''}`, onClick: () => setActiveTab('relationships'), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-heart" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Relationships (", displayRelationships.length, ")"] })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-modal-content", children: [activeTab === 'events' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-events-tab-content", children: displayCurrentEvents.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_EventList__WEBPACK_IMPORTED_MODULE_5__.EventList, { ref: eventListRef, events: displayCurrentEvents, presentCharacters: presentCharacters, editMode: editMode, onUpdate: handleCurrentEventUpdate, onDelete: handleCurrentEventDelete })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("p", { className: "bt-empty-message", children: "No events in the current chapter yet." })) })), activeTab === 'chapters' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-chapters-tab-content", children: [allEvents.length > 0 && !editMode && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-tension-graph-section", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("h3", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-chart-line" }), "Tension Over Time"] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_TensionGraph__WEBPACK_IMPORTED_MODULE_4__.TensionGraph, { events: allEvents })] })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_ChapterHistory__WEBPACK_IMPORTED_MODULE_3__.ChapterHistory, { chapters: displayChapters, editMode: editMode, onUpdate: handleChaptersUpdate })] })), activeTab === 'relationships' && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_tabs_RelationshipsTab__WEBPACK_IMPORTED_MODULE_6__.RelationshipsTab, { relationships: displayRelationships, presentCharacters: presentCharacters, editMode: editMode, onUpdate: setEditRelationships }))] })] }) }), document.body);
 }
 
 
@@ -50040,6 +50395,14 @@ const EVENT_TYPE_ICONS = {
     // Social
     social: 'fa-users',
     achievement: 'fa-trophy',
+    // Support & Protection
+    helped: 'fa-hands-helping',
+    common_interest: 'fa-puzzle-piece',
+    outing: 'fa-map-location-dot',
+    defended: 'fa-shield-halved',
+    crisis_together: 'fa-person-shelter',
+    vulnerability: 'fa-heart-crack',
+    entrusted: 'fa-key',
 };
 /**
  * Colors for event types.
@@ -50100,6 +50463,14 @@ const EVENT_TYPE_COLORS = {
     // Social - greens
     social: '#22c55e',
     achievement: '#f59e0b',
+    // Support & Protection - teals/blues
+    helped: '#14b8a6', // teal-500
+    common_interest: '#06b6d4', // cyan-500
+    outing: '#3b82f6', // blue-500
+    defended: '#6366f1', // indigo-500
+    crisis_together: '#ef4444', // red-500
+    vulnerability: '#a855f7', // purple-500
+    entrusted: '#f59e0b', // amber-500
 };
 /**
  * Priority order for selecting "primary" icon when multiple types.
@@ -50123,8 +50494,10 @@ const EVENT_TYPE_PRIORITY = [
     'intimate_embrace',
     'intimate_touch',
     // Then high-drama events
+    'crisis_together',
     'combat',
     'danger',
+    'defended',
     'betrayal',
     'confession',
     'argument',
@@ -50153,6 +50526,11 @@ const EVENT_TYPE_PRIORITY = [
     'shared_activity',
     // Then social/support
     'supportive',
+    'vulnerability',
+    'entrusted',
+    'helped',
+    'common_interest',
+    'outing',
     'achievement',
     'social',
     'negotiation',
@@ -50346,7 +50724,7 @@ function SettingsPanel() {
                 ], onChange: v => handleUpdate('autoMode', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_form__WEBPACK_IMPORTED_MODULE_6__.NumberField, { id: "blazetracker-lastx", label: "Max Messages to Include", description: "Max. number of recent messages to send for extraction context", value: settings.lastXMessages, min: 1, max: 50, step: 1, onChange: v => handleUpdate('lastXMessages', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_form__WEBPACK_IMPORTED_MODULE_6__.NumberField, { id: "blazetracker-maxtokens", label: "Max Response Tokens", description: "Maximum tokens for extraction response", value: settings.maxResponseTokens, min: 500, max: 8000, step: 100, onChange: v => handleUpdate('maxResponseTokens', v) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_form__WEBPACK_IMPORTED_MODULE_6__.SelectField, { id: "blazetracker-position", label: "State Display Position", description: "Show state block above or below the message", value: settings.displayPosition, options: [
                     { value: 'below', label: 'Below message' },
                     { value: 'above', label: 'Above message' },
-                ], onChange: handlePositionChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ExtractionTogglesSection, { settings: settings, onToggle: handleExtractionToggle, onNumericChange: handleExtractionNumericChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_form__WEBPACK_IMPORTED_MODULE_6__.SelectField, { id: "blazetracker-tempunit", label: "Temperature Unit", description: "Display temperatures in Fahrenheit or Celsius", value: settings.temperatureUnit, options: [
+                ], onChange: handlePositionChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ExtractionTogglesSection, { settings: settings, onToggle: handleExtractionToggle, onNumericChange: handleExtractionNumericChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-relationship-settings", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-section-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("strong", { children: "Relationship Settings" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("small", { children: "Configure relationship progression behavior" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_form__WEBPACK_IMPORTED_MODULE_6__.NumberField, { id: "blazetracker-relationship-cooldown", label: "Upgrade Cooldown (messages)", description: "Minimum messages between relationship status upgrades", value: settings.relationshipUpgradeCooldown, min: 1, max: 20, step: 1, onChange: v => handleUpdate('relationshipUpgradeCooldown', v) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("hr", {}), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_form__WEBPACK_IMPORTED_MODULE_6__.SelectField, { id: "blazetracker-tempunit", label: "Temperature Unit", description: "Display temperatures in Fahrenheit or Celsius", value: settings.temperatureUnit, options: [
                     { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
                     { value: 'celsius', label: 'Celsius (°C)' },
                 ], onChange: handleTempUnitChange }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_form__WEBPACK_IMPORTED_MODULE_6__.SelectField, { id: "blazetracker-timeformat", label: "Time Format", description: "Display time in 12-hour or 24-hour format", value: settings.timeFormat, options: [
@@ -50591,12 +50969,12 @@ function StateDisplay({ stateData, narrativeState, messageId, isExtracting, extr
     // Check if narrative modal should be available (has chapters or relationships)
     const hasNarrativeContent = narrativeState &&
         (narrativeState.chapters.length > 0 || narrativeState.relationships.length > 0);
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(showTime || showClimate || showLocation) && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && state.time && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), ' ', (0,_formatters__WEBPACK_IMPORTED_MODULE_12__.formatTime)(state.time, settings.timeFormat)] })), showClimate && state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_display__WEBPACK_IMPORTED_MODULE_13__.ClimateDisplay, { climate: state.climate, temperatureUnit: settings.temperatureUnit })), showLocation && state.location && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), ' ', (0,_formatters__WEBPACK_IMPORTED_MODULE_12__.formatLocation)(state.location)] }))] })), showScene && state.scene ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_display__WEBPACK_IMPORTED_MODULE_13__.SceneDisplay, { scene: state.scene, onMoreInfoClick: hasNarrativeContent ? handleOpenModal : undefined })) : showScene && !state.scene ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-scene-pending", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-hourglass-half" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Scene analysis will happen after first character response" })] })) : null, state.chapterEnded ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-current-events", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-chapter-ended", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-chapter-ended-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-book" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-chapter-ended-title", children: ["Chapter ", state.chapterEnded.index + 1, ":", ' ', state.chapterEnded.title] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-chapter-ended-badge", children: [state.chapterEnded.reason ===
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-container", children: [(showTime || showClimate || showLocation) && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-state-summary", children: [showTime && state.time && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-time", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-regular fa-clock" }), ' ', (0,_formatters__WEBPACK_IMPORTED_MODULE_12__.formatTime)(state.time, settings.timeFormat)] })), showClimate && state.climate && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_display__WEBPACK_IMPORTED_MODULE_13__.ClimateDisplay, { climate: state.climate, temperatureUnit: settings.temperatureUnit })), showLocation && state.location && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-location", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-location-dot" }), ' ', (0,_formatters__WEBPACK_IMPORTED_MODULE_12__.formatLocation)(state.location)] }))] })), showScene && state.scene ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_display__WEBPACK_IMPORTED_MODULE_13__.SceneDisplay, { scene: state.scene, onMoreInfoClick: hasNarrativeContent ? handleOpenModal : undefined })) : showScene && !state.scene ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-scene-pending", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-hourglass-half" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Scene analysis will happen after first character response" })] })) : null, state.chapterEnded ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-current-events", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-chapter-ended", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-chapter-ended-header", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("i", { className: "fa-solid fa-book" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-chapter-ended-title", children: ["Chapter", ' ', state.chapterEnded.index + 1, ":", ' ', state.chapterEnded.title] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { className: "bt-chapter-ended-badge", children: [state.chapterEnded.reason ===
                                             'location_change' &&
                                             'Location changed', state.chapterEnded.reason ===
-                                            'time_jump' && 'Time skip', state.chapterEnded.reason === 'both' &&
-                                            'Location + Time', state.chapterEnded.reason === 'manual' &&
-                                            'Manual'] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chapter-ended-summary", children: state.chapterEnded.summary }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chapter-ended-stats", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: [state.chapterEnded.eventCount, " events archived"] }) })] }) })) : showEvents ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-current-events", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_EventList__WEBPACK_IMPORTED_MODULE_14__.EventList, { events: currentEvents.slice(-3), presentCharacters: presentCharacters, maxEvents: 3 }), currentEvents.length > 3 && hasNarrativeContent && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "bt-view-all-events", onClick: handleOpenModal, children: ["View all ", currentEvents.length, " events..."] }))] })) : null, showDetails && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details", showCharacters &&
+                                            'time_jump' && 'Time skip', state.chapterEnded.reason ===
+                                            'both' && 'Location + Time', state.chapterEnded.reason ===
+                                            'manual' && 'Manual'] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chapter-ended-summary", children: state.chapterEnded.summary }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "bt-chapter-ended-stats", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: [state.chapterEnded.eventCount, ' ', "events archived"] }) })] }) })) : showEvents ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "bt-current-events", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_EventList__WEBPACK_IMPORTED_MODULE_14__.EventList, { events: currentEvents.slice(-3), presentCharacters: presentCharacters, maxEvents: 3 }), currentEvents.length > 3 && hasNarrativeContent && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("button", { className: "bt-view-all-events", onClick: handleOpenModal, children: ["View all ", currentEvents.length, " events..."] }))] })) : null, showDetails && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("details", { className: "bt-state-details", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("summary", { children: ["Details", showCharacters &&
                                 characterCount > 0 &&
                                 ` (${characterCount} characters`, showLocation &&
                                 propsCount > 0 &&
@@ -55313,6 +55691,8 @@ async function showLegacyDataPopup(context) {
             cleanup();
             log('User chose to re-extract all messages');
             (0,sillytavern_utils_lib_config__WEBPACK_IMPORTED_MODULE_10__.st_echo)?.('info', '🔥 Starting full re-extraction...');
+            // Unmount all roots first to prevent stale UI
+            (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.unmountAllRoots)();
             const state = (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_9__.initializeNarrativeState)();
             (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_9__.setNarrativeState)(state);
             clearAllPerMessageState(context);
@@ -55325,6 +55705,8 @@ async function showLegacyDataPopup(context) {
             cleanup();
             log('User chose to re-extract recent message only');
             (0,sillytavern_utils_lib_config__WEBPACK_IMPORTED_MODULE_10__.st_echo)?.('info', '🔥 Re-extracting recent state...');
+            // Unmount all roots first to prevent stale UI
+            (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.unmountAllRoots)();
             const state = (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_9__.initializeNarrativeState)();
             (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_9__.setNarrativeState)(state);
             clearAllPerMessageState(context);
@@ -55341,6 +55723,8 @@ async function showLegacyDataPopup(context) {
         const handleMigrateEmpty = async () => {
             cleanup();
             log('User chose to initialize empty state');
+            // Unmount all roots first to prevent stale UI
+            (0,_ui_stateDisplay__WEBPACK_IMPORTED_MODULE_2__.unmountAllRoots)();
             const state = (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_9__.initializeNarrativeState)();
             (0,_state_narrativeState__WEBPACK_IMPORTED_MODULE_9__.setNarrativeState)(state);
             // Don't clear per-message state - just let it be ignored
