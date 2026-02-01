@@ -79,6 +79,8 @@ function createMockSettings(overrides: Partial<ExtractionSettings> = {}): Extrac
 			chapters: 0.5,
 		},
 		customPrompts: {},
+		maxMessagesToSend: 10,
+		maxChapterMessagesToSend: 24,
 		...overrides,
 	};
 }
@@ -464,6 +466,160 @@ describe('timeChangeExtractor', () => {
 			expect(timeChangeExtractor.runStrategy).toEqual({
 				strategy: 'everyMessage',
 			});
+		});
+	});
+
+	describe('message limiting', () => {
+		it('limits messages to maxMessagesToSend', async () => {
+			// Create context with many messages
+			const context = createMockContext({
+				chat: [
+					{
+						mes: 'Message 0 - earliest',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 1',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 2',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 3',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 4',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 5',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 6',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 7',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 8',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 9 - latest with time change',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+				],
+			});
+
+			// Set maxMessagesToSend to 3
+			const settings = createMockSettings({
+				maxMessagesToSend: 3,
+			});
+
+			const currentMessage: MessageAndSwipe = { messageId: 9, swipeId: 0 };
+
+			mockGenerator.setDefaultResponse(
+				JSON.stringify({
+					reasoning: 'Time passed',
+					delta: { days: 0, hours: 1, minutes: 0, seconds: 0 },
+				}),
+			);
+
+			await timeChangeExtractor.run(
+				mockGenerator,
+				context,
+				settings,
+				store,
+				currentMessage,
+				[],
+			);
+
+			const call = mockGenerator.getLastCall();
+			const promptContent = call!.prompt.messages.map(m => m.content).join('\n');
+
+			// Should NOT contain early messages (limited to last 3)
+			expect(promptContent).not.toContain('Message 0 - earliest');
+			expect(promptContent).not.toContain('Message 1');
+			expect(promptContent).not.toContain('Message 5');
+			expect(promptContent).not.toContain('Message 6');
+
+			// Should contain the most recent messages
+			expect(promptContent).toContain('Message 9 - latest');
+		});
+
+		it('respects message strategy (n=1) and only includes current message', async () => {
+			// Time change extractor uses fixedNumber n=1, so it only looks at the current message
+			// The maxMessagesToSend limit doesn't expand beyond the message strategy
+			const context = createMockContext({
+				chat: [
+					{
+						mes: 'First message',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Second message - current',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+				],
+			});
+
+			const settings = createMockSettings({
+				maxMessagesToSend: 10, // Limit higher than message count
+			});
+
+			const currentMessage: MessageAndSwipe = { messageId: 1, swipeId: 0 };
+
+			mockGenerator.setDefaultResponse(
+				JSON.stringify({
+					reasoning: 'No time change',
+					delta: { days: 0, hours: 0, minutes: 1, seconds: 0 },
+				}),
+			);
+
+			await timeChangeExtractor.run(
+				mockGenerator,
+				context,
+				settings,
+				store,
+				currentMessage,
+				[],
+			);
+
+			const call = mockGenerator.getLastCall();
+			const promptContent = call!.prompt.messages.map(m => m.content).join('\n');
+
+			// With n=1 message strategy, only the current message is included
+			expect(promptContent).toContain('Second message - current');
 		});
 	});
 });

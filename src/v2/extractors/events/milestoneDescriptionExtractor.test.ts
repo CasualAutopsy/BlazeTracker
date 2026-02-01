@@ -83,6 +83,8 @@ function createMockSettings(overrides: Partial<ExtractionSettings> = {}): Extrac
 			chapters: 0.5,
 		},
 		customPrompts: {},
+		maxMessagesToSend: 10,
+		maxChapterMessagesToSend: 24,
 		...overrides,
 	};
 }
@@ -608,6 +610,124 @@ describe('milestoneDescriptionExtractor', () => {
 				strategy: 'newEventsOfKind',
 				kinds: [{ kind: 'relationship', subkind: 'subject' }],
 			});
+		});
+	});
+
+	describe('message limiting', () => {
+		it('limits messages to maxMessagesToSend', async () => {
+			// Create context with many messages
+			const context = createMockContext({
+				chat: [
+					{
+						mes: 'Message 0 - earliest',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 1',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 2',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 3',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 4',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 5',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 6',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 7',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 8',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 9 - latest with first kiss',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+				],
+			});
+
+			// Set maxMessagesToSend to 3
+			const settings = createMockSettings({
+				maxMessagesToSend: 3,
+			});
+
+			const currentMessage: MessageAndSwipe = { messageId: 9, swipeId: 0 };
+
+			// Create a subject event that would trigger milestone description
+			const subjectEvent: RelationshipSubjectEvent = {
+				id: 'test-subject-1',
+				kind: 'relationship',
+				subkind: 'subject',
+				subject: 'intimate_kiss',
+				pair: ['Elena', 'User'],
+				source: { messageId: 9, swipeId: 0 },
+				timestamp: Date.now(),
+			};
+
+			mockGenerator.setDefaultResponse(
+				JSON.stringify({
+					reasoning: 'Elena and User share a kiss',
+					description:
+						'A tender moment as Elena and User share a kiss.',
+				}),
+			);
+
+			await milestoneDescriptionExtractor.run(
+				mockGenerator,
+				context,
+				settings,
+				store,
+				currentMessage,
+				[subjectEvent],
+			);
+
+			const call = mockGenerator.getLastCall();
+			if (call) {
+				const promptContent = call.prompt.messages
+					.map(m => m.content)
+					.join('\n');
+
+				// Should NOT contain early messages (limited to last 3)
+				expect(promptContent).not.toContain('Message 0 - earliest');
+				expect(promptContent).not.toContain('Message 1');
+				expect(promptContent).not.toContain('Message 5');
+				expect(promptContent).not.toContain('Message 6');
+			}
 		});
 	});
 });

@@ -26,6 +26,8 @@ import {
 	projectWithTurnEvents,
 	getAllOutfitItems,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import type { EventStore } from '../../store';
 import { debugLog, debugWarn } from '../../../utils/debug';
@@ -101,8 +103,16 @@ export const propsConfirmationExtractor: EventExtractor<ExtractedPropsConfirmati
 
 		// Calculate message range for context
 		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
-		const messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
 
 		// Build the prompt (all placeholders are now standard)
 		const builtPrompt = buildExtractorPrompt(

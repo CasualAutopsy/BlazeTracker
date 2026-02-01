@@ -33,6 +33,8 @@ import {
 	filterFeelingsToRemove,
 	projectWithTurnEvents,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../../utils';
 import { debugWarn } from '../../../../utils/debug';
 
@@ -83,8 +85,16 @@ export const feelingsChangeExtractor: PerPairExtractor<ExtractedFeelingsChange> 
 
 		// Calculate message range based on strategy
 		const messageCount = 3; // fixedNumber: 3
-		const messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
 
 		// Build prompt with relationship pair context
 		const builtPrompt = buildExtractorPrompt(

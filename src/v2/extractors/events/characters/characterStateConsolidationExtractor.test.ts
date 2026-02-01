@@ -1,13 +1,16 @@
 /**
  * Tests for Character State Consolidation Extractor
  *
- * Focuses on shouldRun logic and internal mapping functions.
+ * Focuses on shouldRun logic, internal mapping functions, and message limiting.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createMockGenerator, type MockGenerator } from '../../../generator';
 import { characterStateConsolidationExtractor } from './characterStateConsolidationExtractor';
-import type { RunStrategyContext, ExtractionContext, ExtractionSettings } from '../../types';
 import type { EventStore } from '../../../store';
+import type { RunStrategyContext, ExtractionContext, ExtractionSettings } from '../../types';
+import type { MessageAndSwipe, Event } from '../../../types';
+import { createEmptySnapshot, createEmptyCharacterState } from '../../../types';
 
 // Mock store
 const createMockStore = (): EventStore =>
@@ -58,7 +61,21 @@ const createMockSettings = (): ExtractionSettings => ({
 		chapters: 0.5,
 	},
 	customPrompts: {},
+	maxMessagesToSend: 10,
+	maxChapterMessagesToSend: 24,
 });
+
+// Mock snapshot with character state
+const createMockSnapshotWithCharacter = (messageId: number = 0) => {
+	const snapshot = createEmptySnapshot({ messageId, swipeId: 0 });
+	const lunaState = createEmptyCharacterState('Luna');
+	lunaState.position = 'standing';
+	lunaState.activity = 'talking';
+	lunaState.mood = ['happy', 'content', 'joyful'];
+	lunaState.physicalState = ['healthy', 'rested'];
+	snapshot.characters = { Luna: lunaState };
+	return snapshot;
+};
 
 describe('characterStateConsolidationExtractor', () => {
 	describe('shouldRun', () => {
@@ -212,5 +229,203 @@ describe('state consolidation mapping logic', () => {
 
 		expect(removed).toEqual([]);
 		expect(added).toEqual([]);
+	});
+});
+
+describe('characterStateConsolidationExtractor message limiting', () => {
+	let mockGenerator: MockGenerator;
+
+	beforeEach(() => {
+		mockGenerator = createMockGenerator();
+	});
+
+	// Helper to create context with many messages
+	const createLargeContext = (messageCount: number): ExtractionContext => {
+		const chat = [];
+		for (let i = 0; i < messageCount; i++) {
+			chat.push({
+				mes: `Message ${i}`,
+				is_user: i % 2 === 0,
+				is_system: false,
+				name: i % 2 === 0 ? 'User' : 'Luna',
+			});
+		}
+		return {
+			chat,
+			characters: [{ name: 'Luna' }],
+			characterId: 0,
+			name1: 'User',
+			name2: 'Luna',
+		};
+	};
+
+	// Helper to create store with snapshot
+	const createStoreWithSnapshot = (): EventStore => {
+		const snapshot = createMockSnapshotWithCharacter(0);
+		const store = {
+			getActiveEvents: vi.fn().mockReturnValue([]),
+			snapshots: [snapshot],
+			events: [] as Event[],
+			appendEvents: vi.fn(),
+			projectStateAtMessage: vi.fn().mockImplementation(() => ({
+				source: { messageId: 0, swipeId: 0 },
+				time: null,
+				location: null,
+				forecasts: {},
+				climate: null,
+				scene: null,
+				characters: {
+					Luna: {
+						name: 'Luna',
+						position: 'standing',
+						activity: 'talking',
+						mood: ['happy', 'content', 'joyful'],
+						physicalState: ['healthy', 'rested'],
+						outfit: {
+							head: null,
+							neck: null,
+							jacket: null,
+							back: null,
+							torso: null,
+							legs: null,
+							footwear: null,
+							socks: null,
+							underwear: null,
+						},
+					},
+				},
+				relationships: {},
+				currentChapter: 0,
+				charactersPresent: ['Luna'],
+				narrativeEvents: [],
+			})),
+			getDeepClone: vi.fn(),
+		};
+		// getDeepClone returns a clone of itself
+		store.getDeepClone.mockReturnValue(store);
+		return store as unknown as EventStore;
+	};
+
+	it('limits messages to maxMessagesToSend when context has more messages', async () => {
+		const store = createStoreWithSnapshot();
+		const context = createLargeContext(20);
+		const settings = createMockSettings();
+		settings.maxMessagesToSend = 3;
+		const currentMessage: MessageAndSwipe = { messageId: 11, swipeId: 0 };
+		const turnEvents: Event[] = [];
+
+		mockGenerator.setDefaultResponse(
+			JSON.stringify({
+				reasoning: 'Consolidated moods.',
+				consolidatedMoods: ['happy'],
+				consolidatedPhysical: ['healthy'],
+			}),
+		);
+
+		await characterStateConsolidationExtractor.run(
+			mockGenerator,
+			context,
+			settings,
+			store,
+			currentMessage,
+			turnEvents,
+			'Luna',
+		);
+
+		// Verify generator was called
+		const calls = mockGenerator.getCalls();
+		expect(calls.length).toBeGreaterThan(0);
+
+		// Get the prompt content
+		const prompt = calls[0].prompt.messages.map(m => m.content).join('\n');
+
+		// Should NOT contain earlier messages
+		expect(prompt).not.toContain('Message 0');
+		expect(prompt).not.toContain('Message 5');
+		expect(prompt).not.toContain('Message 8');
+
+		// Should contain the last 3 messages (9, 10, 11)
+		expect(prompt).toContain('Message 9');
+		expect(prompt).toContain('Message 10');
+		expect(prompt).toContain('Message 11');
+	});
+
+	it('includes all messages when count is under limit', async () => {
+		const store = createStoreWithSnapshot();
+		const context = createLargeContext(12);
+		const settings = createMockSettings();
+		settings.maxMessagesToSend = 10;
+		const currentMessage: MessageAndSwipe = { messageId: 5, swipeId: 0 };
+		const turnEvents: Event[] = [];
+
+		mockGenerator.setDefaultResponse(
+			JSON.stringify({
+				reasoning: 'Consolidated moods.',
+				consolidatedMoods: ['happy'],
+				consolidatedPhysical: ['healthy'],
+			}),
+		);
+
+		await characterStateConsolidationExtractor.run(
+			mockGenerator,
+			context,
+			settings,
+			store,
+			currentMessage,
+			turnEvents,
+			'Luna',
+		);
+
+		const calls = mockGenerator.getCalls();
+		expect(calls.length).toBeGreaterThan(0);
+
+		const prompt = calls[0].prompt.messages.map(m => m.content).join('\n');
+
+		// With 6 message window and maxMessages 10, all 6 should be included
+		// Messages 0-5 should all be in the prompt
+		expect(prompt).toContain('Message 0');
+		expect(prompt).toContain('Message 5');
+	});
+
+	it('uses maxMessagesToSend not maxChapterMessagesToSend', async () => {
+		const store = createStoreWithSnapshot();
+		const context = createLargeContext(30);
+		const settings = createMockSettings();
+		settings.maxMessagesToSend = 3;
+		settings.maxChapterMessagesToSend = 20;
+		const currentMessage: MessageAndSwipe = { messageId: 11, swipeId: 0 };
+		const turnEvents: Event[] = [];
+
+		mockGenerator.setDefaultResponse(
+			JSON.stringify({
+				reasoning: 'Consolidated moods.',
+				consolidatedMoods: ['happy'],
+				consolidatedPhysical: ['healthy'],
+			}),
+		);
+
+		await characterStateConsolidationExtractor.run(
+			mockGenerator,
+			context,
+			settings,
+			store,
+			currentMessage,
+			turnEvents,
+			'Luna',
+		);
+
+		const calls = mockGenerator.getCalls();
+		expect(calls.length).toBeGreaterThan(0);
+
+		const prompt = calls[0].prompt.messages.map(m => m.content).join('\n');
+
+		// Should be limited to 3, not 20
+		expect(prompt).not.toContain('Message 5');
+		expect(prompt).not.toContain('Message 8');
+
+		// Should contain last 3 messages
+		expect(prompt).toContain('Message 9');
+		expect(prompt).toContain('Message 10');
+		expect(prompt).toContain('Message 11');
 	});
 });

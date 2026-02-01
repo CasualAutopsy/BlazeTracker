@@ -20,7 +20,13 @@ import type {
 	RunStrategyContext,
 } from '../../types';
 import { appearedCharacterProfilePrompt } from '../../../prompts/events/appearedCharacterProfilePrompt';
-import { formatMessages, generateAndParse, getExtractorTemperature } from '../../utils';
+import {
+	formatMessages,
+	generateAndParse,
+	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
+} from '../../utils';
 import { buildPrompt } from '../../../prompts';
 import { generateEventId } from '../../../store/serialization';
 import { debugLog, debugWarn } from '../../../../utils/debug';
@@ -71,8 +77,17 @@ export const appearedCharacterProfileExtractor: EventExtractor<ExtractedCharacte
 		}
 
 		// Build placeholder values for messages (last 6 messages for more context)
-		const messageStart = Math.max(0, currentMessage.messageId - 5);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - 5);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		const messages = formatMessages(context, messageStart, messageEnd);
 
 		// Get temperature (prompt override → category → default)

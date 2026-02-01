@@ -116,6 +116,8 @@ function createMockSettings(overrides: Partial<ExtractionSettings> = {}): Extrac
 			chapters: 0.5,
 		},
 		customPrompts: {},
+		maxMessagesToSend: 10,
+		maxChapterMessagesToSend: 24,
 		...overrides,
 	};
 }

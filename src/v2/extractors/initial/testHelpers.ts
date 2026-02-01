@@ -73,6 +73,8 @@ export function createMockSettings(
 			chapters: 0.5,
 		},
 		customPrompts: {},
+		maxMessagesToSend: 10,
+		maxChapterMessagesToSend: 24,
 		...overrides,
 	};
 }

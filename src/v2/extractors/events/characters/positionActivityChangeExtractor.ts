@@ -28,6 +28,8 @@ import {
 	projectWithTurnEvents,
 	mapPositionActivityChange,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../../utils';
 import type { EventStore } from '../../../store';
 import { debugWarn } from '../../../../utils/debug';
@@ -98,11 +100,16 @@ export const positionActivityChangeExtractor: PerCharacterExtractor<ExtractedPos
 				store,
 				currentMessage,
 			);
-			const messageStart = Math.max(
-				0,
-				currentMessage.messageId - messageCount + 1,
-			);
-			const messageEnd = currentMessage.messageId;
+			let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+			let messageEnd = currentMessage.messageId;
+
+			// Apply message limiting
+			const maxMessages = getMaxMessages(settings, this.name);
+			({ messageStart, messageEnd } = limitMessageRange(
+				messageStart,
+				messageEnd,
+				maxMessages,
+			));
 
 			// Build the prompt with target character context
 			const builtPrompt = buildExtractorPrompt(

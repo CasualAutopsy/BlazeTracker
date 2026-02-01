@@ -14,6 +14,8 @@ import {
 	getCharacterDescription,
 	generateAndParse,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import { buildPrompt } from '../../prompts';
 import { debugWarn } from '../../../utils/debug';
@@ -66,8 +68,18 @@ export const tensionExtractor: InitialExtractor = {
 			return {};
 		}
 
+		// Calculate message range with limiting
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Build placeholder values
-		const messages = formatMessages(context, 0, context.chat.length - 1);
+		const messages = formatMessages(context, messageStart, messageEnd);
 		const characterDescription = getCharacterDescription(context);
 
 		const placeholderValues: Record<string, string> = {

@@ -75,6 +75,9 @@ export {
 export type { TemperatureCategory } from './temperature';
 export { getExtractorTemperature } from './temperature';
 
+// Message limiting
+export { limitMessageRange, getMaxMessages } from './limitMessages';
+
 // Validation utilities
 export {
 	buildSwipeContextFromExtraction,

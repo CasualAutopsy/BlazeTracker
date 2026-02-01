@@ -28,6 +28,8 @@ import {
 	getAllOutfitItems,
 	filterPropsAgainstOutfits,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import type { EventStore } from '../../store';
 import { debugLog, debugWarn } from '../../../utils/debug';
@@ -100,8 +102,16 @@ export const propsChangeExtractor: EventExtractor<ExtractedPropsChange> = {
 
 		// Calculate message range using strategy (since last props event)
 		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
-		const messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
 
 		// Compute outfit changes from turn events (extractor-specific value)
 		const outfitChanges = formatOutfitChangesFromEvents(turnEvents);

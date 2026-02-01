@@ -15,6 +15,8 @@ import {
 	generateAndParse,
 	formatLocation,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import { createEmptySnapshot, createProjectionFromSnapshot } from '../../types/snapshot';
 import { debugWarn } from '../../../utils/debug';
@@ -94,10 +96,20 @@ export const climateExtractor: InitialExtractor = {
 			swipeId: 0,
 		});
 
+		// Calculate message range with limiting
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Build placeholder values for the prompt
 		// Include location context if available
 		const placeholderValues: Record<string, string> = {
-			messages: formatMessages(context, 0, context.chat.length - 1),
+			messages: formatMessages(context, messageStart, messageEnd),
 			characterName: context.name2,
 			characterDescription: getCharacterDescription(context),
 		};
@@ -113,8 +125,8 @@ export const climateExtractor: InitialExtractor = {
 			context,
 			projection,
 			settings,
-			0,
-			context.chat.length - 1,
+			messageStart,
+			messageEnd,
 		);
 
 		// Get temperature (prompt override → category → default)

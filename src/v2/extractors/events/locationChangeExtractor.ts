@@ -25,6 +25,8 @@ import {
 	evaluateRunStrategy,
 	projectWithTurnEvents,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 
 /**
@@ -76,8 +78,16 @@ export const locationChangeExtractor: EventExtractor<ExtractedLocationChange> = 
 
 		// Determine message range
 		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
-		const messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
 
 		// Build the prompt with current location context
 		const builtPrompt = buildExtractorPrompt(

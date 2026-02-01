@@ -991,6 +991,86 @@ function V2SettingsPanel() {
 							/>
 						</div>
 
+						{/* Max Messages to Send */}
+						<div
+							className="flex-container flexFlowColumn"
+							style={{ marginBottom: '1em' }}
+						>
+							<label htmlFor="bt-v2-maxmessages">
+								Max Messages to Send
+							</label>
+							<small>
+								Maximum messages sent to extractors
+								(reduces context usage)
+							</small>
+							<input
+								id="bt-v2-maxmessages"
+								type="number"
+								className="text_pole"
+								min="1"
+								max="100"
+								step="1"
+								value={settings.v2MaxMessagesToSend}
+								onChange={e => {
+									const value = parseInt(
+										e.target.value,
+										10,
+									);
+									if (
+										!isNaN(value) &&
+										value >= 1
+									) {
+										handleUpdate(
+											'v2MaxMessagesToSend',
+											value,
+										);
+									}
+								}}
+								style={{ width: '120px' }}
+							/>
+						</div>
+
+						{/* Max Chapter Messages to Send */}
+						<div
+							className="flex-container flexFlowColumn"
+							style={{ marginBottom: '1em' }}
+						>
+							<label htmlFor="bt-v2-maxchaptermessages">
+								Max Chapter Messages
+							</label>
+							<small>
+								Maximum messages for chapter
+								description extractor only
+							</small>
+							<input
+								id="bt-v2-maxchaptermessages"
+								type="number"
+								className="text_pole"
+								min="1"
+								max="200"
+								step="1"
+								value={
+									settings.v2MaxChapterMessagesToSend
+								}
+								onChange={e => {
+									const value = parseInt(
+										e.target.value,
+										10,
+									);
+									if (
+										!isNaN(value) &&
+										value >= 1
+									) {
+										handleUpdate(
+											'v2MaxChapterMessagesToSend',
+											value,
+										);
+									}
+								}}
+								style={{ width: '120px' }}
+							/>
+						</div>
+
 						{/* Temperature Sliders */}
 						<div className="bt-temperature-section">
 							<div className="bt-section-header">

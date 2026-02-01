@@ -17,6 +17,8 @@ import {
 	buildNameLookup,
 	findNameInLookup,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import { buildPrompt } from '../../prompts';
 import { debugWarn } from '../../../utils/debug';
@@ -77,9 +79,19 @@ export const initialRelationshipsExtractor: InitialExtractor<ExtractedInitialRel
 		// Format pairs for the prompt
 		const pairsText = knownPairs.map(([a, b]) => `- ${a} and ${b}`).join('\n');
 
+		// Calculate message range with limiting
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Build placeholder values
 		const placeholders: Record<string, string> = {
-			messages: formatMessages(context, 0, context.chat.length - 1),
+			messages: formatMessages(context, messageStart, messageEnd),
 			characterName: context.name2,
 			characterDescription: getCharacterDescription(context),
 			characterPairs: pairsText,

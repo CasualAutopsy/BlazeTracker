@@ -30,6 +30,8 @@ import {
 	projectWithTurnEvents,
 	getExtractorTemperature,
 	formatMessages,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import type { EventStore } from '../../store';
 import type { SwipeContext } from '../../store/projection';
@@ -228,14 +230,19 @@ export const chapterDescriptionExtractor: EventExtractor<ExtractedChapterDescrip
 		const swipeContext = buildSwipeContextFromExtraction(context);
 
 		// Get chapter start message (previous chapter snapshot + 1, or 0) - swipe-aware
-		const chapterStartMsg = getChapterStartMessage(store, chapterIndex, swipeContext);
+		let chapterStartMsg = getChapterStartMessage(store, chapterIndex, swipeContext);
+		let chapterEndMsg = currentMessage.messageId;
 
-		// Get ALL messages for this chapter
-		const allChapterMessages = formatMessages(
-			context,
+		// Apply message limiting (uses maxChapterMessagesToSend)
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart: chapterStartMsg, messageEnd: chapterEndMsg } = limitMessageRange(
 			chapterStartMsg,
-			currentMessage.messageId,
-		);
+			chapterEndMsg,
+			maxMessages,
+		));
+
+		// Get messages for this chapter (limited)
+		const allChapterMessages = formatMessages(context, chapterStartMsg, chapterEndMsg);
 
 		// Get ALL narrative events for this chapter
 		// We need a working store with turn events to get the latest narrative events

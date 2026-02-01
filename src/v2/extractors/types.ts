@@ -89,6 +89,10 @@ export interface ExtractionSettings {
 	>;
 	/** Per-prompt temperature overrides (takes precedence over category temperatures) */
 	promptTemperatures?: Record<string, number>;
+	/** Max messages to send to extractors (default 10) */
+	maxMessagesToSend: number;
+	/** Max messages to send to chapter description extractor (default 24) */
+	maxChapterMessagesToSend: number;
 }
 
 // ============================================

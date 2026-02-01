@@ -13,7 +13,13 @@ import {
 	extractedDateTimeToIsoString,
 } from '../../types';
 import { initialTimePrompt } from '../../prompts/initial/timePrompt';
-import { buildExtractorPrompt, generateAndParse, getExtractorTemperature } from '../utils';
+import {
+	buildExtractorPrompt,
+	generateAndParse,
+	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
+} from '../utils';
 import { debugWarn } from '../../../utils/debug';
 
 /**
@@ -55,14 +61,24 @@ export const initialTimeExtractor: InitialExtractor<ExtractedInitialTime> = {
 			{ messageId: 0, swipeId: 0 },
 		);
 
+		// Calculate message range with limiting
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Build the prompt with placeholders filled in
 		const builtPrompt = buildExtractorPrompt(
 			initialTimePrompt,
 			context,
 			projection,
 			settings,
-			0, // Start from message 0
-			context.chat.length - 1, // Include all messages
+			messageStart,
+			messageEnd,
 		);
 
 		// Get the temperature (prompt override → category → default)

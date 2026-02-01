@@ -12,6 +12,7 @@ import type {
 	ExtractionSettings,
 	RunStrategyContext,
 } from '../types';
+import { getMessageCount } from '../types';
 import type {
 	Event,
 	MessageAndSwipe,
@@ -28,6 +29,8 @@ import {
 	formatLocation,
 	formatRelationshipProfiles,
 	buildSwipeContextFromExtraction,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import type { EventStore } from '../../store';
 import type { Projection } from '../../types';
@@ -99,11 +102,12 @@ function buildMilestonePlaceholderValues(
 	event: RelationshipSubjectEvent,
 	context: ExtractionContext,
 	projection: Projection,
-	messageId: number,
+	messageStart: number,
+	messageEnd: number,
 ): Record<string, string> {
 	const pair = event.pair as [string, string];
 	return {
-		messages: formatMessages(context, messageId - 1, messageId),
+		messages: formatMessages(context, messageStart, messageEnd),
 		milestoneType: event.subject,
 		characterPair: `${pair[0]} and ${pair[1]}`,
 		timeOfDay: getTimeOfDay(projection),
@@ -228,6 +232,19 @@ export const milestoneDescriptionExtractor: EventExtractor<ExtractedMilestoneDes
 			context,
 		);
 
+		// Calculate message range with limiting
+		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Get the temperature (use custom if set, otherwise default)
 		const temperature = settings.temperatures.narrative ?? this.defaultTemperature;
 
@@ -238,7 +255,8 @@ export const milestoneDescriptionExtractor: EventExtractor<ExtractedMilestoneDes
 				event,
 				context,
 				projection,
-				currentMessage.messageId,
+				messageStart,
+				messageEnd,
 			);
 
 			// Build the prompt with milestone-specific values

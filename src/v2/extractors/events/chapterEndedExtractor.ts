@@ -26,6 +26,8 @@ import {
 	evaluateRunStrategy,
 	projectWithTurnEvents,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import { debugWarn } from '../../../utils/debug';
 
@@ -116,8 +118,16 @@ export const chapterEndedExtractor: EventExtractor<ExtractedChapterEnded> = {
 
 		// Determine message range
 		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
-		const messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
 
 		// Build the prompt with current location and time context
 		const builtPrompt = buildExtractorPrompt(

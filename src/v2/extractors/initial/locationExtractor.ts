@@ -9,7 +9,13 @@ import type { Generator } from '../../generator';
 import type { Snapshot, LocationState } from '../../types';
 import type { InitialExtractor, ExtractionContext, ExtractionSettings } from '../types';
 import { initialLocationPrompt } from '../../prompts/initial/locationPrompt';
-import { buildExtractorPrompt, generateAndParse, getExtractorTemperature } from '../utils';
+import {
+	buildExtractorPrompt,
+	generateAndParse,
+	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
+} from '../utils';
 import { createEmptySnapshot, createProjectionFromSnapshot } from '../../types/snapshot';
 import { debugWarn } from '../../../utils/debug';
 
@@ -51,14 +57,24 @@ export const locationExtractor: InitialExtractor = {
 			swipeId: 0,
 		});
 
+		// Calculate message range with limiting
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Build the prompt
 		const builtPrompt = buildExtractorPrompt(
 			initialLocationPrompt,
 			context,
 			projection,
 			settings,
-			0,
-			context.chat.length - 1,
+			messageStart,
+			messageEnd,
 		);
 
 		// Get temperature (prompt override → category → default)

@@ -17,6 +17,8 @@ import {
 	generateAndParse,
 	findMatchingCharacterKey,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import { buildPrompt } from '../../prompts';
 import { debugWarn } from '../../../utils/debug';
@@ -81,11 +83,21 @@ export const initialCharacterProfilesExtractor: InitialExtractor<ExtractedCharac
 			this.defaultTemperature,
 		);
 
+		// Calculate message range with limiting (shared across all characters)
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Extract profile for each character
 		for (const characterName of characterNames) {
 			// Build placeholder values for this character
 			const placeholders: Record<string, string> = {
-				messages: formatMessages(context, 0, context.chat.length - 1),
+				messages: formatMessages(context, messageStart, messageEnd),
 				characterName: context.name2,
 				characterDescription: getCharacterDescription(context),
 				userDescription: getUserDescription(context),

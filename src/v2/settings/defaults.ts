@@ -65,6 +65,10 @@ export function createDefaultV2Settings(): V2Settings {
 
 		// Persona defaults
 		v2PersonaDefaults: {},
+
+		// Message limits
+		v2MaxMessagesToSend: 10,
+		v2MaxChapterMessagesToSend: 24,
 	};
 }
 
@@ -117,5 +121,10 @@ export function mergeV2WithDefaults(partial: Partial<V2Settings>): V2Settings {
 			...defaults.v2PersonaDefaults,
 			...partial.v2PersonaDefaults,
 		},
+
+		// Message limits
+		v2MaxMessagesToSend: partial.v2MaxMessagesToSend ?? defaults.v2MaxMessagesToSend,
+		v2MaxChapterMessagesToSend:
+			partial.v2MaxChapterMessagesToSend ?? defaults.v2MaxChapterMessagesToSend,
 	};
 }

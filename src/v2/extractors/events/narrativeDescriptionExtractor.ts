@@ -23,6 +23,8 @@ import {
 	evaluateRunStrategy,
 	projectWithTurnEvents,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import type { EventStore } from '../../store';
 import { debugLog, debugWarn } from '../../../utils/debug';
@@ -71,8 +73,16 @@ export const narrativeDescriptionExtractor: EventExtractor<ExtractedNarrativeDes
 
 		// Calculate message range based on strategy (since last narrative description)
 		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
-		const endMessageId = currentMessage.messageId;
-		const startMessageId = Math.max(0, endMessageId - messageCount + 1);
+		let startMessageId = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let endMessageId = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart: startMessageId, messageEnd: endMessageId } = limitMessageRange(
+			startMessageId,
+			endMessageId,
+			maxMessages,
+		));
 
 		// Build the prompt with current context
 		const builtPrompt = buildExtractorPrompt(

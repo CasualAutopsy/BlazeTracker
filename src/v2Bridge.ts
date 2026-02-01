@@ -151,6 +151,8 @@ export function buildExtractionSettingsFromV2(settings: V2Settings): ExtractionS
 		},
 		customPrompts: settings.v2CustomPrompts,
 		promptTemperatures: settings.v2PromptTemperatures,
+		maxMessagesToSend: settings.v2MaxMessagesToSend,
+		maxChapterMessagesToSend: settings.v2MaxChapterMessagesToSend,
 	};
 }
 

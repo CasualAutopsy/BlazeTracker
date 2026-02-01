@@ -36,6 +36,8 @@ import {
 	mapMoodPhysicalChange,
 	projectWithTurnEvents,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../../utils';
 import { debugWarn } from '../../../../utils/debug';
 
@@ -97,8 +99,16 @@ export const moodPhysicalChangeExtractor: PerCharacterExtractor<ExtractedMoodPhy
 
 		// Calculate message range based on strategy (since last mood/physical event)
 		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
-		const messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
 
 		// Build prompt with target character context
 		const builtPrompt = buildExtractorPrompt(

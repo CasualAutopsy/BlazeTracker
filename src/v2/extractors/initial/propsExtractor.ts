@@ -17,6 +17,8 @@ import {
 	getAllOutfitItems,
 	filterPropsAgainstOutfits,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../utils';
 import { createEmptySnapshot, createProjectionFromSnapshot } from '../../types';
 import { debugLog, debugWarn } from '../../../utils/debug';
@@ -93,14 +95,24 @@ export const initialPropsExtractor: InitialExtractor<ExtractedInitialProps> = {
 			swipeId: 0,
 		});
 
+		// Calculate message range with limiting
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Build the prompt (characterOutfits is now a standard placeholder)
 		const builtPrompt = buildExtractorPrompt(
 			initialPropsPrompt,
 			context,
 			tempProjection,
 			settings,
-			0,
-			context.chat.length - 1,
+			messageStart,
+			messageEnd,
 		);
 
 		// Get temperature (prompt override → category → default)

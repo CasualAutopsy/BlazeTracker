@@ -75,6 +75,8 @@ function createMockSettings(overrides: Partial<ExtractionSettings> = {}): Extrac
 			chapters: 0.5,
 		},
 		customPrompts: {},
+		maxMessagesToSend: 10,
+		maxChapterMessagesToSend: 24,
 		...overrides,
 	};
 }
@@ -389,6 +391,158 @@ describe('initialTimeExtractor', () => {
 
 		it('has a default temperature', () => {
 			expect(initialTimeExtractor.defaultTemperature).toBe(0.3);
+		});
+	});
+
+	describe('message limiting', () => {
+		it('limits messages to maxMessagesToSend', async () => {
+			// Create context with many messages
+			const context = createMockContext({
+				chat: [
+					{
+						mes: 'Message 0 - earliest',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 1',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 2',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 3',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 4',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 5',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 6',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 7',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+					{
+						mes: 'Message 8',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Message 9 - latest',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+				],
+			});
+
+			// Set maxMessagesToSend to 3
+			const settings = createMockSettings({
+				maxMessagesToSend: 3,
+			});
+
+			mockGenerator.setDefaultResponse(
+				JSON.stringify({
+					reasoning: 'The time is afternoon',
+					time: {
+						year: 2024,
+						month: 11,
+						day: 14,
+						hour: 15,
+						minute: 0,
+						second: 0,
+						dayOfWeek: 'Thursday',
+					},
+				}),
+			);
+
+			await initialTimeExtractor.run(mockGenerator, context, settings, {});
+
+			const call = mockGenerator.getLastCall();
+			const promptContent = call!.prompt.messages.map(m => m.content).join('\n');
+
+			// Should NOT contain early messages (limited to last 3)
+			expect(promptContent).not.toContain('Message 0 - earliest');
+			expect(promptContent).not.toContain('Message 1');
+			expect(promptContent).not.toContain('Message 5');
+			expect(promptContent).not.toContain('Message 6');
+
+			// Should contain the most recent messages
+			expect(promptContent).toContain('Message 9 - latest');
+		});
+
+		it('includes all messages when under maxMessagesToSend limit', async () => {
+			// Create context with fewer messages than limit
+			const context = createMockContext({
+				chat: [
+					{
+						mes: 'First message',
+						is_user: false,
+						is_system: false,
+						name: 'Elena',
+					},
+					{
+						mes: 'Second message',
+						is_user: true,
+						is_system: false,
+						name: 'User',
+					},
+				],
+			});
+
+			const settings = createMockSettings({
+				maxMessagesToSend: 10, // Limit higher than message count
+			});
+
+			mockGenerator.setDefaultResponse(
+				JSON.stringify({
+					reasoning: 'The time is afternoon',
+					time: {
+						year: 2024,
+						month: 11,
+						day: 14,
+						hour: 15,
+						minute: 0,
+						second: 0,
+						dayOfWeek: 'Thursday',
+					},
+				}),
+			);
+
+			await initialTimeExtractor.run(mockGenerator, context, settings, {});
+
+			const call = mockGenerator.getLastCall();
+			const promptContent = call!.prompt.messages.map(m => m.content).join('\n');
+
+			// Should contain all messages since count is under limit
+			expect(promptContent).toContain('First message');
+			expect(promptContent).toContain('Second message');
 		});
 	});
 });

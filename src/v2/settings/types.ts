@@ -86,6 +86,12 @@ export interface V2Settings {
 	// Card/Persona defaults
 	/** Persona-specific default outfit and profile settings */
 	v2PersonaDefaults: Record<string, unknown>;
+
+	// Message limits
+	/** Max messages to send to extractors (default 10) */
+	v2MaxMessagesToSend: number;
+	/** Max messages to send to chapter description extractor (default 24) */
+	v2MaxChapterMessagesToSend: number;
 }
 
 /**
@@ -107,7 +113,11 @@ export function isV2Settings(obj: unknown): obj is V2Settings {
 		typeof s.v2Temperatures === 'object' &&
 		typeof s.v2CustomPrompts === 'object' &&
 		typeof s.v2PromptTemperatures === 'object' &&
-		typeof s.v2PersonaDefaults === 'object'
+		typeof s.v2PersonaDefaults === 'object' &&
+		(typeof s.v2MaxMessagesToSend === 'number' ||
+			s.v2MaxMessagesToSend === undefined) &&
+		(typeof s.v2MaxChapterMessagesToSend === 'number' ||
+			s.v2MaxChapterMessagesToSend === undefined)
 	);
 }
 

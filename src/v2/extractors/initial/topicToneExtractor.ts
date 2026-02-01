@@ -8,7 +8,13 @@ import type { Generator } from '../../generator';
 import type { Snapshot } from '../../types/snapshot';
 import type { InitialExtractor, ExtractionContext, ExtractionSettings } from '../types';
 import { initialTopicTonePrompt } from '../../prompts/initial/topicTonePrompt';
-import { generateAndParse, buildExtractorPrompt, getExtractorTemperature } from '../utils';
+import {
+	generateAndParse,
+	buildExtractorPrompt,
+	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
+} from '../utils';
 import { createEmptySnapshot, createProjectionFromSnapshot } from '../../types/snapshot';
 import { debugWarn } from '../../../utils/debug';
 
@@ -45,14 +51,24 @@ export const initialTopicToneExtractor: InitialExtractor = {
 			swipeId: 0,
 		});
 
+		// Calculate message range with limiting
+		let messageStart = 0;
+		let messageEnd = context.chat.length - 1;
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		// Build prompt with context
 		const builtPrompt = buildExtractorPrompt(
 			initialTopicTonePrompt,
 			context,
 			projection,
 			settings,
-			0,
-			context.chat.length - 1,
+			messageStart,
+			messageEnd,
 		);
 
 		// Get temperature (prompt override → category → default)

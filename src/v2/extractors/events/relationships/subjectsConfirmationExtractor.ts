@@ -20,7 +20,13 @@ import type {
 } from '../../types';
 import { getMessageCount } from '../../types';
 import { subjectsConfirmationPrompt } from '../../../prompts/events/subjectsConfirmationPrompt';
-import { generateAndParse, evaluateRunStrategy, getExtractorTemperature } from '../../utils';
+import {
+	generateAndParse,
+	evaluateRunStrategy,
+	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
+} from '../../utils';
 import { buildPrompt } from '../../../prompts';
 import type { EventStore } from '../../../store';
 import { debugLog, debugWarn } from '../../../../utils/debug';
@@ -130,8 +136,16 @@ export const subjectsConfirmationExtractor: EventExtractor<ExtractedSubjectsConf
 
 		// Calculate message range for context
 		const messageCount = getMessageCount(this.messageStrategy, store, currentMessage);
-		const messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - messageCount + 1);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
 
 		// Format messages once for all confirmations
 		const messages = formatMessages(context, messageStart, messageEnd);

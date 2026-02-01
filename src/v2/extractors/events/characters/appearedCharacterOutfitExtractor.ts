@@ -30,6 +30,8 @@ import {
 	getCharacterDescription,
 	generateAndParse,
 	getExtractorTemperature,
+	limitMessageRange,
+	getMaxMessages,
 } from '../../utils';
 import { buildPrompt } from '../../../prompts';
 import { generateEventId } from '../../../store/serialization';
@@ -93,8 +95,17 @@ export const appearedCharacterOutfitExtractor: EventExtractor<ExtractedCharacter
 		}
 
 		// Build placeholder values for messages
-		const messageStart = Math.max(0, currentMessage.messageId - 2);
-		const messageEnd = currentMessage.messageId;
+		let messageStart = Math.max(0, currentMessage.messageId - 2);
+		let messageEnd = currentMessage.messageId;
+
+		// Apply message limiting
+		const maxMessages = getMaxMessages(settings, this.name);
+		({ messageStart, messageEnd } = limitMessageRange(
+			messageStart,
+			messageEnd,
+			maxMessages,
+		));
+
 		const messages = formatMessages(context, messageStart, messageEnd);
 
 		// Get temperature (prompt override → category → default)
