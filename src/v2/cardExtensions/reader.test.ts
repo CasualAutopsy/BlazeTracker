@@ -2,8 +2,17 @@
  * Tests for card extension reader functions.
  */
 
-import { describe, it, expect } from 'vitest';
-import { namesMatch } from './reader';
+import { describe, it, expect, vi } from 'vitest';
+import { namesMatch, writeAllExtensions } from './reader';
+import type { STContextWithExtensions } from './reader';
+import type { CardExtensions } from './types';
+import {
+	EXTENSION_KEY_LOCATION,
+	EXTENSION_KEY_TIME,
+	EXTENSION_KEY_OUTFIT,
+	EXTENSION_KEY_PROFILE,
+	EXTENSION_KEY_RELATIONSHIPS,
+} from './types';
 
 describe('namesMatch', () => {
 	describe('exact matches', () => {
@@ -85,5 +94,156 @@ describe('namesMatch', () => {
 		it('does not match when no words overlap', () => {
 			expect(namesMatch('Alice', 'Bob')).toBe(false);
 		});
+	});
+});
+
+/**
+ * Create a mock ST context with a mocked writeExtensionField.
+ */
+function createMockContext(
+	overrides: Partial<STContextWithExtensions> = {},
+): STContextWithExtensions {
+	return {
+		eventSource: {},
+		event_types: {},
+		chat: [],
+		chatMetadata: {},
+		characters: [],
+		characterId: 0,
+		name1: 'User',
+		name2: 'Character',
+		generateQuietPrompt: vi.fn(),
+		generateRaw: vi.fn(),
+		deactivateSendButtons: vi.fn(),
+		activateSendButtons: vi.fn(),
+		stopGeneration: vi.fn(),
+		setExtensionPrompt: vi.fn(),
+		saveChat: vi.fn(),
+		saveMetadataDebounced: vi.fn(),
+		extensionSettings: {},
+		saveSettingsDebounced: vi.fn(),
+		Popup: {},
+		callGenericPopup: vi.fn(),
+		POPUP_TYPE: {},
+		POPUP_RESULT: {},
+		streamingProcessor: {},
+		writeExtensionField: vi.fn().mockResolvedValue(undefined),
+		...overrides,
+	};
+}
+
+describe('writeAllExtensions', () => {
+	it('writes null when relationships is undefined to clear extension', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		// The key 'relationships' exists in the object but is set to undefined
+		await writeAllExtensions({ relationships: undefined } as CardExtensions, 0, ctx);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(
+			0,
+			EXTENSION_KEY_RELATIONSHIPS,
+			null,
+		);
+	});
+
+	it('writes empty array when relationships is empty', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		await writeAllExtensions({ relationships: [] }, 0, ctx);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(
+			0,
+			EXTENSION_KEY_RELATIONSHIPS,
+			[],
+		);
+	});
+
+	it('does not write relationships when key is not in extensions object', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		// Only location key exists, not relationships
+		await writeAllExtensions({ location: { enabled: true, area: 'Test' } }, 0, ctx);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(0, EXTENSION_KEY_LOCATION, {
+			enabled: true,
+			area: 'Test',
+		});
+		expect(mockWriteExtensionField).not.toHaveBeenCalledWith(
+			0,
+			EXTENSION_KEY_RELATIONSHIPS,
+			expect.anything(),
+		);
+	});
+
+	it('writes null when location is undefined to clear extension', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		await writeAllExtensions({ location: undefined } as CardExtensions, 0, ctx);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(
+			0,
+			EXTENSION_KEY_LOCATION,
+			null,
+		);
+	});
+
+	it('writes null when time is undefined to clear extension', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		await writeAllExtensions({ time: undefined } as CardExtensions, 0, ctx);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(0, EXTENSION_KEY_TIME, null);
+	});
+
+	it('writes null when outfit is undefined to clear extension', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		await writeAllExtensions({ outfit: undefined } as CardExtensions, 0, ctx);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(0, EXTENSION_KEY_OUTFIT, null);
+	});
+
+	it('writes null when profile is undefined to clear extension', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		await writeAllExtensions({ profile: undefined } as CardExtensions, 0, ctx);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(
+			0,
+			EXTENSION_KEY_PROFILE,
+			null,
+		);
+	});
+
+	it('writes all extensions when multiple keys are present', async () => {
+		const mockWriteExtensionField = vi.fn().mockResolvedValue(undefined);
+		const ctx = createMockContext({ writeExtensionField: mockWriteExtensionField });
+
+		await writeAllExtensions(
+			{
+				location: { enabled: true, area: 'City' },
+				relationships: [{ target: 'Friend', status: 'friendly' }],
+			},
+			0,
+			ctx,
+		);
+
+		expect(mockWriteExtensionField).toHaveBeenCalledTimes(2);
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(0, EXTENSION_KEY_LOCATION, {
+			enabled: true,
+			area: 'City',
+		});
+		expect(mockWriteExtensionField).toHaveBeenCalledWith(
+			0,
+			EXTENSION_KEY_RELATIONSHIPS,
+			[{ target: 'Friend', status: 'friendly' }],
+		);
 	});
 });

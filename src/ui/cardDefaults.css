@@ -166,7 +166,7 @@
 
 .bt-defaults-section.expanded .bt-defaults-section-content {
 	padding: 14px;
-	max-height: 2000px;
+	max-height: none;
 }
 
 /* Section content when disabled */

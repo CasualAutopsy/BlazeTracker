@@ -329,6 +329,10 @@ export async function writeRelationshipsExtension(
 
 /**
  * Write all card extensions at once.
+ *
+ * Uses 'key in extensions' check instead of '!== undefined' to ensure that
+ * when an extension key exists but is undefined, we write null to clear it.
+ * This fixes the bug where removing the last relationship wouldn't persist.
  */
 export async function writeAllExtensions(
 	extensions: CardExtensions,
@@ -340,38 +344,52 @@ export async function writeAllExtensions(
 
 	const promises: Promise<void>[] = [];
 
-	if (extensions.location !== undefined) {
+	if ('location' in extensions) {
 		promises.push(
 			ctx.writeExtensionField(
 				charId,
 				EXTENSION_KEY_LOCATION,
-				extensions.location,
+				extensions.location ?? null,
 			),
 		);
 	}
 
-	if (extensions.time !== undefined) {
-		promises.push(ctx.writeExtensionField(charId, EXTENSION_KEY_TIME, extensions.time));
-	}
-
-	if (extensions.outfit !== undefined) {
+	if ('time' in extensions) {
 		promises.push(
-			ctx.writeExtensionField(charId, EXTENSION_KEY_OUTFIT, extensions.outfit),
+			ctx.writeExtensionField(
+				charId,
+				EXTENSION_KEY_TIME,
+				extensions.time ?? null,
+			),
 		);
 	}
 
-	if (extensions.profile !== undefined) {
+	if ('outfit' in extensions) {
 		promises.push(
-			ctx.writeExtensionField(charId, EXTENSION_KEY_PROFILE, extensions.profile),
+			ctx.writeExtensionField(
+				charId,
+				EXTENSION_KEY_OUTFIT,
+				extensions.outfit ?? null,
+			),
 		);
 	}
 
-	if (extensions.relationships !== undefined) {
+	if ('profile' in extensions) {
+		promises.push(
+			ctx.writeExtensionField(
+				charId,
+				EXTENSION_KEY_PROFILE,
+				extensions.profile ?? null,
+			),
+		);
+	}
+
+	if ('relationships' in extensions) {
 		promises.push(
 			ctx.writeExtensionField(
 				charId,
 				EXTENSION_KEY_RELATIONSHIPS,
-				extensions.relationships,
+				extensions.relationships ?? null,
 			),
 		);
 	}

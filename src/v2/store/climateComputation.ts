@@ -111,7 +111,9 @@ export function computeClimate(
 
 	// Derive condition
 	const conditionType = deriveCondition(hourly);
-	const conditions = describeCondition(conditionType);
+	const daylight = getDaylightPhase(time.hour(), daily.sunrise, daily.sunset);
+	const isNight = daylight === 'night' || daylight === 'dusk';
+	const conditions = describeCondition(conditionType, undefined, isNight);
 
 	// Build the climate forecast
 	const climate: ClimateForecast = {
@@ -131,7 +133,7 @@ export function computeClimate(
 		conditions,
 		conditionType,
 		uvIndex: hourly.uvIndex,
-		daylight: getDaylightPhase(time.hour(), daily.sunrise, daily.sunset),
+		daylight,
 		isIndoors: tempResult.isIndoors,
 		buildingType: tempResult.buildingType,
 	};

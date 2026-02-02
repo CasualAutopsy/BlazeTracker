@@ -223,7 +223,13 @@ export async function extractProceduralClimate(
 
 	// Derive condition
 	const conditionType = deriveCondition(hourlyWeather);
-	const conditions = describeCondition(conditionType);
+	const daylight = getDaylightPhase(
+		currentTime.hour,
+		dayForecast.sunrise,
+		dayForecast.sunset,
+	);
+	const isNight = daylight === 'night' || daylight === 'dusk';
+	const conditions = describeCondition(conditionType, undefined, isNight);
 
 	// Build climate object
 	const climate: ProceduralClimate = {
@@ -243,11 +249,7 @@ export async function extractProceduralClimate(
 		conditions,
 		conditionType,
 		uvIndex: hourlyWeather.uvIndex,
-		daylight: getDaylightPhase(
-			currentTime.hour,
-			dayForecast.sunrise,
-			dayForecast.sunset,
-		),
+		daylight,
 		isIndoors: tempResult.isIndoors,
 		buildingType: tempResult.buildingType,
 	};

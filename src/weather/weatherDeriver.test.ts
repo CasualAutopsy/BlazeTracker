@@ -244,6 +244,49 @@ describe('describeCondition', () => {
 			expect(typeof desc).toBe('string');
 		}
 	});
+
+	describe('night descriptions', () => {
+		it('uses night descriptions for clear at night', () => {
+			const description = describeCondition('clear', () => 0, true);
+			expect(description).toBe('clear night sky');
+		});
+
+		it('uses night descriptions for sunny at night', () => {
+			// 'sunny' shouldn't occur at night but should be handled gracefully
+			const description = describeCondition('sunny', () => 0, true);
+			expect(description).toBe('clear night sky');
+		});
+
+		it('uses night descriptions for partly_cloudy at night', () => {
+			const description = describeCondition('partly_cloudy', () => 0, true);
+			expect(description).toBe('scattered clouds');
+		});
+
+		it('avoids sunshine references for partly_cloudy at night', () => {
+			// Check all options don't contain "sunshine"
+			for (let i = 0; i < 3; i++) {
+				const rng = () => i / 3;
+				const description = describeCondition('partly_cloudy', rng, true);
+				expect(description).not.toContain('sunshine');
+			}
+		});
+
+		it('uses day descriptions when isNight is false', () => {
+			const description = describeCondition('sunny', () => 0, false);
+			expect(description).toBe('bright sunshine');
+		});
+
+		it('uses day descriptions when isNight is undefined', () => {
+			const description = describeCondition('sunny', () => 0);
+			expect(description).toBe('bright sunshine');
+		});
+
+		it('falls back to day descriptions for conditions without night variants', () => {
+			// 'rain' has no night-specific descriptions
+			const description = describeCondition('rain', () => 0, true);
+			expect(description).toBe('steady rain');
+		});
+	});
 });
 
 // ============================================

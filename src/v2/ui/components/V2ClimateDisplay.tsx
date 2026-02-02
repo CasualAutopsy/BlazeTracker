@@ -7,12 +7,8 @@
 
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import type {
-	ClimateForecast,
-	DaylightPhase,
-	BuildingType,
-	WeatherCondition,
-} from '../../types/common';
+import type { ClimateForecast, DaylightPhase, BuildingType } from '../../types/common';
+import { getConditionIconDayNight } from '../icons';
 
 export interface V2ClimateDisplayProps {
 	climate: ClimateForecast;
@@ -24,27 +20,6 @@ interface TooltipState {
 	x: number;
 	y: number;
 }
-
-// Icon mappings
-const CONDITION_ICONS: Record<WeatherCondition, string> = {
-	clear: 'fa-moon',
-	sunny: 'fa-sun',
-	partly_cloudy: 'fa-cloud-sun',
-	overcast: 'fa-cloud',
-	foggy: 'fa-smog',
-	drizzle: 'fa-cloud-rain',
-	rain: 'fa-cloud-showers-heavy',
-	heavy_rain: 'fa-cloud-showers-water',
-	thunderstorm: 'fa-cloud-bolt',
-	sleet: 'fa-cloud-meatball',
-	snow: 'fa-snowflake',
-	heavy_snow: 'fa-snowflake',
-	blizzard: 'fa-icicles',
-	windy: 'fa-wind',
-	hot: 'fa-temperature-high',
-	cold: 'fa-temperature-low',
-	humid: 'fa-droplet',
-};
 
 const DAYLIGHT_ICONS: Record<DaylightPhase, string> = {
 	dawn: 'fa-sun-haze',
@@ -114,7 +89,8 @@ export function V2ClimateDisplay({ climate, temperatureUnit = 'F' }: V2ClimateDi
 		y: 0,
 	});
 
-	const conditionIcon = CONDITION_ICONS[climate.conditionType] ?? 'fa-question';
+	const isNight = climate.daylight === 'night' || climate.daylight === 'dusk';
+	const conditionIcon = getConditionIconDayNight(climate.conditionType, isNight);
 	const displayTemp = climate.temperature;
 	const isIndoors = climate.isIndoors;
 

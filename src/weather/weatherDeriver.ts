@@ -82,10 +82,25 @@ const CONDITION_DESCRIPTIONS: Record<WeatherCondition, string[]> = {
 };
 
 /**
+ * Night-specific descriptions for conditions that reference daylight.
+ */
+const CONDITION_DESCRIPTIONS_NIGHT: Partial<Record<WeatherCondition, string[]>> = {
+	clear: ['clear night sky', 'starry skies', 'calm night'],
+	sunny: ['clear night sky', 'starry skies', 'pleasant night'], // 'sunny' shouldn't occur at night, but handle gracefully
+	partly_cloudy: ['scattered clouds', 'partly cloudy', 'patchy clouds'],
+};
+
+/**
  * Get a human-readable description of the condition
  */
-export function describeCondition(condition: WeatherCondition, rng?: () => number): string {
-	const options = CONDITION_DESCRIPTIONS[condition] || ['moderate weather'];
+export function describeCondition(
+	condition: WeatherCondition,
+	rng?: () => number,
+	isNight?: boolean,
+): string {
+	// Use night descriptions for conditions that reference daylight
+	const nightOptions = isNight ? CONDITION_DESCRIPTIONS_NIGHT[condition] : undefined;
+	const options = nightOptions || CONDITION_DESCRIPTIONS[condition] || ['moderate weather'];
 	const random = rng ? rng() : Math.random();
 	return options[Math.floor(random * options.length)];
 }
