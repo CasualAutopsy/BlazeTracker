@@ -4,6 +4,8 @@ A SillyTavern extension that tracks narrative state across roleplay conversation
 
 Built for longer, slower-burn narratives. Prioritises accuracy over speed.
 
+**[📖 Documentation](https://lunarblazepony.github.io/BlazeTracker/)** — Concepts, guides, and reference.
+
 ![Compact view](./img/compact_block.png)
 
 ### Is This For You?
@@ -59,47 +61,7 @@ BlazeTracker needs a connection profile to make extraction calls separately from
 
 ### Enable Prefix Caching (Recommended)
 
-BlazeTracker makes multiple sequential LLM calls per message. Prefix caching lets your backend reuse the computed context between calls, significantly reducing latency and compute.
-
-**KoboldCpp**
-
-```bash
-# Add to your launch command
---smartcache 18
-```
-
-The number is how many cache slots to allocate. Each slot stores a full context's worth of KV cache in system RAM (not VRAM), so memory usage scales with context length and model size. You need at least 12 slots to see meaningful benefit; fewer than that and the cache churns too quickly to help.
-
-Memory usage varies significantly by model: 18 slots with GLM 4 358B at full context uses ~200GB RAM, while the same setup with QwQ 32B uses ~48GB. Check your system memory before going too high.
-
-**Aphrodite**
-
-```bash
-# Add to your launch command
---enable-prefix-caching
-```
-
-**vLLM**
-
-```bash
-# Add to your launch command
---enable-prefix-caching
-```
-
-**TabbyAPI**
-
-In your `config.yml`:
-```yaml
-cache:
-  prompt_cache: true
-```
-
-**llama.cpp / llama-server**
-
-```bash
-# Add to your launch command
---cache-prompt
-```
+BlazeTracker makes multiple sequential LLM calls per message. Prefix caching lets your backend reuse the computed context between calls, significantly reducing latency and compute. See the [docs](https://lunarblazepony.github.io/BlazeTracker/docs/getting-started/setup/#enable-prefix-caching) for backend-specific configuration.
 
 ---
 
@@ -215,204 +177,39 @@ BlazeTracker provides commands for automation and batch operations:
 
 ---
 
-## Settings
-
-Open the BlazeTracker settings panel in SillyTavern's Extensions menu.
-
-### Connection
-
-**Connection Profile** — Select which API connection to use for state extraction. See [Setup](#setup) for how to create one.
-
-**Auto Extract** — When enabled, automatically extract state from new messages. Disable for manual-only extraction via the 🔥 button.
-
-### Display
-
-**State Display Position** — Show the state block above or below the message content.
-
-**Temperature Unit** — Display temperatures in Fahrenheit or Celsius.
-
-**Time Format** — Display time in 12-hour (2:30 PM) or 24-hour (14:30) format.
-
-### Tracking
-
-Enable or disable specific extraction modules. Disabling modules you don't need reduces LLM calls per message.
-
-| Module | What it tracks |
-|--------|----------------|
-| **Time** | Narrative date and time |
-| **Location** | Area, place, and position |
-| **Props** | Nearby objects and items (requires Location) |
-| **Climate** | Weather and temperature (requires Location and Time) |
-| **Characters** | Positions, moods, and outfits |
-| **Relationships** | Character relationships and attitudes (requires Characters) |
-| **Scene** | Topic, tone, and tension |
-| **Narrative** | Events, milestones, and chapters (requires Relationships and Scene) |
-
-**Debug Logging** — Log debug information to browser console. Useful for troubleshooting extraction issues.
-
-### Custom Prompts
-
-Override the default extraction prompts for any module. Each prompt has:
-
-- **Temperature** — LLM temperature for this extraction (lower = more deterministic, higher = more creative). Shows both the category default and per-prompt default.
-- **Available Placeholders** — Variables you can use in the prompt (e.g., `{{messages}}`, `{{characterName}}`).
-- **System Prompt** — Static instructions, cacheable by LLM providers for prefix caching.
-- **User Template** — Dynamic content with placeholders, changes per extraction.
-
-Prompts are available for initial extraction (first message) and delta extraction (subsequent messages) across all tracked categories.
-
-### Advanced Settings
-
-**Category Temperatures** — Set default temperatures per extraction category. Individual prompts can override these.
-
-| Category | Default | Notes |
-|----------|---------|-------|
-| Time | 0.3 | Low for deterministic time parsing |
-| Location | 0.5 | |
-| Props | 0.5 | |
-| Climate | 0.3 | Low for consistent weather |
-| Characters | 0.5 | |
-| Relationships | 0.6 | Slightly higher for nuanced feelings |
-| Scene | 0.5 | |
-| Narrative | 0.6 | Slightly higher for creative summaries |
-
----
-
 ## Troubleshooting
 
-### Initial state is wrong
+For detailed troubleshooting, see the [docs](https://lunarblazepony.github.io/BlazeTracker/docs/troubleshooting/).
 
-The first extraction makes assumptions based on limited context. This is normal.
+**Initial state is wrong?** Edit the events on the first message using the ✏️ button. All subsequent extractions project from your corrections.
 
-**Fix:** Edit the events on the first assistant message using the ✏️ button. Set the correct time, location, outfits, and relationships. All subsequent extractions will project forward from your corrections.
+**Extraction isn't accurate?** Tune prompts in Settings → Custom Prompts, or use a larger model.
 
-### Extraction isn't accurate
-
-Different models respond differently to prompts.
-
-**Fix:** Open Custom Prompts in settings and tune the prompts for your model. Add more explicit instructions, adjust field descriptions, or lower temperatures for more deterministic output.
-
-### Extraction is still inaccurate after tuning
-
-BlazeTracker needs a capable model to reliably follow structured extraction prompts.
-
-**Fix:** Use a larger model. Gemma 3 27B is roughly the minimum for consistent results. If your model can't handle it, no amount of prompt tuning will help.
-
-### Extraction is too slow
-
-BlazeTracker makes multiple sequential LLM calls per message.
-
-**Fix:** Enable prefix caching in your backend (see [Installation](#enable-prefix-caching-recommended)). This lets repeated context be reused across calls.
-
-### Extraction is still slow with prefix caching
-
-You may be tracking more than you need.
-
-**Fix:** Disable tracking modules you don't care about in Settings → Tracking. Each disabled module is one fewer LLM call per message.
-
-### Extraction is still too slow
-
-BlazeTracker prioritises accuracy over speed. If latency is a dealbreaker, this may not be the right tool for you.
-
-**Fix:** Try [wTracker](https://github.com/bmen25124/SillyTavern-WTracker) instead. It's lighter weight and designed for simpler use cases.
+**Extraction is too slow?** Enable [prefix caching](https://lunarblazepony.github.io/BlazeTracker/docs/getting-started/setup/#enable-prefix-caching) and disable tracking modules you don't need.
 
 ---
 
-## Support &amp; Feedback
+## Support & Feedback
 
 We have an active thread on the [SillyTavern Discord](https://discord.gg/sillytavern), under Resource Forums > extensions.
 
 ---
 
-## Architecture
-
-### Event-Sourced State
-
-BlazeTracker doesn't store absolute state at each message. Instead, it stores *events* — time passed, character moved, outfit changed, feeling added — and projects current state by replaying them.
-
-This means:
-- Editing an early event automatically updates all downstream state
-- Rolling back (swiping, regenerating) cleanly removes events from that point forward
-- Relationships have full version history — you can see what any relationship looked like at any point
-
-Events are stored per-message. Narrative state (chapters, relationships) lives in message 0 and accumulates across the conversation.
-
-### Extraction Pipeline
-
-Extractors run in sequence, each feeding context to the next:
-
-1. **Time** — Extracts time delta from the message
-2. **Location** — Extracts area, place, position
-3. **Props** — Extracts nearby objects (knows the location)
-4. **Climate** — Simulates weather (knows the location and time)
-5. **Characters** — Extracts character states and outfits
-6. **Relationships** — Updates feelings, wants, secrets (knows who's present)
-7. **Scene** — Extracts topic, tone, tension
-8. **Narrative** — Extracts story events, detects chapter breaks (knows relationships and tension)
-
-Not all extractors run on every message. Initial extraction (first message) uses different prompts than delta extraction (subsequent messages). Some extractors only run on assistant messages where both sides of the conversation are available.
-
-### Procedural Weather
-
-Weather isn't extracted from scene descriptions — it's simulated.
-
-1. **Location Mapping** — The LLM classifies whether a location is real or fictional. Real locations are geocoded. Fictional locations are mapped to real-world climate analogs (Winterfell → Reykjavik) or base climate types (temperate, desert, arctic, etc.).
-
-2. **Climate Normals** — For real locations, historical climate data is fetched from Open-Meteo. For fictional locations, fallback profiles provide monthly temperature ranges, precipitation patterns, and condition probabilities.
-
-3. **Forecast Generation** — A deterministic 28-day forecast is generated using seeded RNG, producing realistic day-to-day variation based on climate normals.
-
-4. **Hourly Lookup** — Given a narrative date and time, the system looks up temperature, humidity, precipitation, cloud cover, and wind from the forecast. Indoor locations adjust temperature based on building type.
-
-The result: weather that's internally consistent across your story without burning tokens asking the LLM to make it up.
-
-### Prefix Caching
-
-Extraction prompts are split into two parts:
-
-- **System Prompt** — Static instructions that don't change between calls
-- **User Template** — Dynamic content with placeholders for messages, previous state, etc.
-
-This structure lets inference backends cache the system prompt across multiple extraction calls in the same turn, significantly reducing compute for the sequential pipeline.
-
----
-
 ## Development
 
-### Building from Source
-
 ```bash
-# Clone the repository
 git clone https://github.com/lunarblazepony/BlazeTracker
 cd BlazeTracker
-
-# Install dependencies
 npm install
-
-# Build
-npm run build
-
-# Development (watch mode)
-npm run dev
-
-# Type checking
-npm run typecheck
-
-# Linting
-npm run lint
-npm run lint:fix
-
-# Formatting
-npm run format
+npm run build     # Build to dist/
+npm run dev       # Watch mode
+npm run typecheck # TypeScript check
+npm run lint      # ESLint
+npm run format    # Prettier
+npm run test      # Vitest
 ```
 
-Output appears in `dist/`.
-
-### Contributing
-
 Contributions welcome. Please open an issue to discuss significant changes before submitting a PR.
-
-If you're planning to modify the extraction pipeline or event system, read the Architecture section first — the event-sourced model has implications for how state flows through the system.
 
 ---
 
